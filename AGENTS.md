@@ -119,7 +119,8 @@ tests/NuGetToolbox.Tests/
 **SignatureExporter**
 - Renders method signatures via Roslyn symbol display
 - Injects XML docs from provider
-- Outputs JSON / JSONL formats
+- Extracts parameter metadata (type + name) and return types from reflection
+- Outputs JSON / JSONL formats with unescaped angle brackets for generic types
 - Filters by namespace (optional)
 
 **ApiDiffAnalyzer**
@@ -132,7 +133,10 @@ tests/NuGetToolbox.Tests/
 All models use `System.Text.Json` with camelCase `[JsonPropertyName]`:
 - `PackageInfo` - package metadata
 - `TypeInfo` - { namespace, name, kind }
-- `MethodInfo` - { type, method, signature, summary, params, returns }
+- `MethodInfo` - { type, method, signature, summary, params, returns, parameters, returnType }
+  - `parameters` - array of { name, type } from reflection
+  - `returnType` - return type from reflection
+- `ParameterInfo` - { name, type }
 - `DiffResult` - { breaking[], added[], removed[], compatible }
 
 ## Code Style

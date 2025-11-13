@@ -10,7 +10,7 @@ A **CLI tool** for analyzing public APIs in NuGet packages without executing cod
 
 - 🔍 **Find packages** by ID/version via NuGet.Protocol V3
 - 📋 **List public types** (classes, interfaces, structs, enums) with namespaces
-- 📝 **Export method signatures** with XML documentation (summary, params, returns)
+- 📝 **Export method signatures** with XML documentation and full type metadata (parameters, return types)
 - ⚡ **Compare versions** for breaking changes and API diffs
 - 🔐 **Safe by design** – metadata-only inspection, zero code execution
 - 🔗 **Private feed support** – respects `nuget.config`, Azure Artifacts, GitHub Packages, etc.
@@ -162,8 +162,8 @@ nuget-toolbox export-signatures \
 
 **Output (JSONL):**
 ```jsonl
-{"type":"Newtonsoft.Json.JsonConvert","method":"SerializeObject","signature":"string SerializeObject(object? value)","summary":"Serializes the specified object...","params":{"value":"..."},"returns":"..."}
-{"type":"Newtonsoft.Json.JsonConvert","method":"DeserializeObject","signature":"object? DeserializeObject(string json)","summary":"...","params":{},"returns":"..."}
+{"type":"Newtonsoft.Json.JsonConvert","method":"SerializeObject","signature":"string SerializeObject(object? value)","summary":"Serializes the specified object...","params":{"value":"..."},"returns":"...","parameters":[{"name":"value","type":"System.Object"}],"returnType":"System.String"}
+{"type":"Newtonsoft.Json.JsonConvert","method":"DeserializeObject","signature":"object? DeserializeObject(string json)","summary":"...","params":{"json":"..."},"returns":"...","parameters":[{"name":"json","type":"System.String"}],"returnType":"System.Object"}
 ```
 
 **Options:**
@@ -454,7 +454,12 @@ dotnet run --project src/NuGetToolbox.Cli -- \
   "params": {
     "paramName": "Description"
   },
-  "returns": "Return value description"
+  "returns": "Return value description",
+  "parameters": [
+    { "name": "param1", "type": "System.String" },
+    { "name": "param2", "type": "System.Int32" }
+  ],
+  "returnType": "System.Boolean"
 }
 ```
 

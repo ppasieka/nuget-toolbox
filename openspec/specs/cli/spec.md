@@ -152,25 +152,31 @@ The system SHALL parse compiler-generated XML documentation files and match memb
 - **AND** returns null if not documented
 
 ### Requirement: C# Signature Export
+The system SHALL render method signatures using Roslyn SymbolDisplayFormat, inject XML documentation, and extract parameter/return type metadata from reflection independent of XML documentation availability.
 
-The system SHALL render method signatures using Roslyn SymbolDisplayFormat and inject XML documentation.
+#### Scenario: Export with XML documentation
+- **WHEN** method has complete XML documentation (summary, params, returns)
+- **THEN** output includes all documentation fields plus parameter types/names and return type
 
-#### Scenario: Export methods with documentation
-- **WHEN** `ExportMethods` is called with assembly paths
-- **THEN** system extracts public methods with signatures
-- **AND** includes summary, params, and returns from XML docs
-- **AND** returns list of MethodInfo
+#### Scenario: Export without XML documentation
+- **WHEN** method lacks XML documentation
+- **THEN** output includes parameter types/names and return type from reflection metadata
 
-#### Scenario: Export to JSON format
-- **WHEN** `ExportToJson` is called with method list
-- **THEN** system serializes using System.Text.Json
-- **AND** uses camelCase property names
-- **AND** returns valid JSON string
+#### Scenario: Export with partial XML documentation
+- **WHEN** method has summary but missing params or returns in XML
+- **THEN** output includes summary from XML plus parameter/return type info from reflection
 
-#### Scenario: Export to JSONL format
-- **WHEN** `ExportToJsonL` is called with method list
-- **THEN** system serializes each method to one JSON line
-- **AND** returns newline-delimited JSON string
+#### Scenario: JSON output structure
+- **WHEN** exporting method signatures
+- **THEN** each method includes:
+  - `type` - containing type name
+  - `method` - method name
+  - `signature` - full method signature
+  - `summary` - documentation summary (if available)
+  - `params` - dictionary of parameter names to documentation (if available)
+  - `returns` - return value documentation (if available)
+  - `parameters` - array of {name, type} objects from reflection
+  - `returnType` - return type from reflection
 
 ### Requirement: API Diff Analysis
 
@@ -271,4 +277,34 @@ The system SHALL write all logging output to a file instead of console to ensure
 - **THEN** only JSON is written to stdout
 - **AND** no logging messages interfere with JSON output
 - **AND** output can be piped to tools like `jq` without errors
+
+### Requirement: Parameter Metadata Extraction
+The system SHALL extract parameter metadata (type and name) from assembly reflection for all public methods.
+
+#### Scenario: Simple parameter types
+- **WHEN** method has value type or string parameters
+- **THEN** output includes accurate type names (e.g., "System.Int32", "System.String")
+
+#### Scenario: Complex parameter types
+- **WHEN** method has generic, array, or reference type parameters
+- **THEN** output includes full type names with namespace and generic arguments
+
+#### Scenario: Parameter names
+- **WHEN** extracting parameters
+- **THEN** output preserves original parameter names from metadata
+
+### Requirement: Return Type Metadata Extraction
+The system SHALL extract return type metadata from assembly reflection for all public methods.
+
+#### Scenario: Void return type
+- **WHEN** method returns void
+- **THEN** `returnType` field contains "System.Void"
+
+#### Scenario: Value type return
+- **WHEN** method returns value type
+- **THEN** `returnType` field contains full type name with namespace
+
+#### Scenario: Generic return type
+- **WHEN** method returns generic type
+- **THEN** `returnType` field contains full generic type notation
 

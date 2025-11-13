@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.Logging;
@@ -101,7 +102,8 @@ public class SignatureExporter
         var options = new JsonSerializerOptions
         {
             WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
         return JsonSerializer.Serialize(methods, options);
@@ -115,7 +117,8 @@ public class SignatureExporter
         var options = new JsonSerializerOptions
         {
             WriteIndented = false,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
         var lines = methods.Select(m => JsonSerializer.Serialize(m, options));
@@ -127,6 +130,12 @@ public class SignatureExporter
         var signature = BuildSignature(method);
         var docId = GetDocumentationCommentId(method);
 
+        var parameters = method.GetParameters().Select(p => new Models.ParameterInfo
+        {
+            Name = p.Name ?? "unknown",
+            Type = GetFullTypeName(p.ParameterType)
+        }).ToList();
+
         var methodInfo = new Models.MethodInfo
         {
             Type = declaringType.FullName ?? declaringType.Name,
@@ -134,7 +143,9 @@ public class SignatureExporter
             Signature = signature,
             Summary = _xmlDocProvider.GetSummary(docId),
             Params = _xmlDocProvider.GetParameters(docId),
-            Returns = _xmlDocProvider.GetReturns(docId)
+            Returns = _xmlDocProvider.GetReturns(docId),
+            Parameters = parameters,
+            ReturnType = GetFullTypeName(method.ReturnType)
         };
 
         return methodInfo;
@@ -218,6 +229,43 @@ public class SignatureExporter
             var args = type.GetGenericArguments();
             var argStrings = string.Join(",", args.Select(GetParameterTypeString));
             return $"{genericTypeName}{{{argStrings}}}";
+        }
+
+        return type.FullName?.Replace('+', '.') ?? type.Name;
+    }
+
+    private static string GetFullTypeName(Type type)
+    {
+        if (type.IsByRef)
+        {
+            var elementType = type.GetElementType();
+            return GetFullTypeName(elementType!) + "&";
+        }
+
+        if (type.IsArray)
+        {
+            var elementType = type.GetElementType();
+            var rank = type.GetArrayRank();
+            var brackets = rank == 1 ? "[]" : $"[{new string(',', rank - 1)}]";
+            return GetFullTypeName(elementType!) + brackets;
+        }
+
+        if (type.IsGenericType)
+        {
+            var genericTypeDef = type.GetGenericTypeDefinition();
+            var genericTypeName = genericTypeDef.FullName?.Replace('+', '.') ?? genericTypeDef.Name;
+            var args = type.GetGenericArguments();
+            var argStrings = string.Join(", ", args.Select(GetFullTypeName));
+            
+            if (genericTypeName.Contains('`'))
+                genericTypeName = genericTypeName.Substring(0, genericTypeName.IndexOf('`'));
+            
+            return $"{genericTypeName}<{argStrings}>";
+        }
+
+        if (type.IsGenericParameter)
+        {
+            return type.Name;
         }
 
         return type.FullName?.Replace('+', '.') ?? type.Name;
