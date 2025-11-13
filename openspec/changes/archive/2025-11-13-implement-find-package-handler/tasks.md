@@ -23,5 +23,5 @@
 
 - [x] 3.1 Run `dotnet build` – no compilation errors
 - [x] 3.2 Run `dotnet test` – all tests pass
-- [ ] 3.3 Manual test: `dotnet run --project src/NuGetToolbox.Cli -- find --package "Newtonsoft.Json"` returns JSON
-- [ ] 3.4 Verify JSON output matches expected `PackageInfo` schema
+- [x] 3.3 Manual test: `dotnet run --project src/NuGetToolbox.Cli -- find --package "Newtonsoft.Json"` returns JSON
+- [x] 3.4 Verify JSON output matches expected `PackageInfo` schema
