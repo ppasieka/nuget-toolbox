@@ -149,9 +149,18 @@ All models use `System.Text.Json` with camelCase `[JsonPropertyName]`:
 ## Testing Strategy
 
 - **Unit tests:** PackageResolver, AssemblyInspector, SignatureExporter
+- **E2E tests:** End-to-end command execution tests (marked with `Skip` attribute)
 - **Pattern:** Arrange-Act-Assert
 - **Mocking:** Mock `NuGetPackageResolver` for offline tests
 - **Coverage:** Focus on TFM selection, doc ID matching, breaking change detection
+
+### E2E Test Conventions
+- E2E tests are in separate `*E2ETests.cs` files (FindCommandE2ETests, ListTypesCommandE2ETests, etc.)
+- All E2E tests use `[Fact(Skip = "E2E - requires actual CLI execution")]` to skip by default
+- E2E tests invoke the CLI via `Process.Start` with `dotnet <cli-path> <command> <args>`
+- Test subject: `Newtonsoft.Json` version 13.0.1 (stable, well-documented, widely-used)
+- Validation: JSON output structure, content accuracy, expected field presence
+- To run E2E tests: remove `Skip` attribute or use `dotnet test --filter "FullyQualifiedName~E2E"`
 
 ## Key Decisions Made
 
