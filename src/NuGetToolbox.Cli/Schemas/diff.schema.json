@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nuget-toolbox.local/schemas/diff-1.0.schema.json",
+  "title": "NuGetToolbox Diff Command Output",
+  "description": "JSON output schema for the 'diff' command, which compares two versions of a NuGet package to identify breaking changes, additions, and removals in the public API surface. Returns a DiffResult object with compatibility analysis.",
+  "$ref": "models-1.0.schema.json#/$defs/DiffResult",
+  "examples": [
+    {
+      "packageId": "Newtonsoft.Json",
+      "versionFrom": "13.0.1",
+      "versionTo": "13.0.3",
+      "tfm": "net8.0",
+      "breaking": [],
+      "added": [],
+      "removed": [],
+      "compatible": true
+    },
+    {
+      "packageId": "SamplePackage",
+      "versionFrom": "1.0.0",
+      "versionTo": "2.0.0",
+      "tfm": "net8.0",
+      "breaking": [
+        {
+          "type": "SamplePackage.OldClass",
+          "method": "RemovedMethod",
+          "reason": "Method removed from public API",
+          "signature": "public void RemovedMethod(int x)"
+        },
+        {
+          "type": "SamplePackage.ChangedClass",
+          "method": "ModifiedMethod",
+          "reason": "Signature changed - parameter type changed from int to string",
+          "signature": "public void ModifiedMethod(int value)"
+        }
+      ],
+      "added": [
+        {
+          "namespace": "SamplePackage.New",
+          "name": "NewClass",
+          "kind": "class"
+        }
+      ],
+      "removed": [
+        {
+          "namespace": "SamplePackage.Old",
+          "name": "OldClass",
+          "kind": "class"
+        }
+      ],
+      "compatible": false
+    }
+  ]
+}

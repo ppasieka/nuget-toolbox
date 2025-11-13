@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nuget-toolbox.local/schemas/export-signatures-1.0.schema.json",
+  "title": "NuGetToolbox Export-Signatures Command Output",
+  "description": "JSON output schema for the 'export-signatures' command, which extracts public method signatures with XML documentation from a NuGet package. Returns an array of MethodInfo objects with full documentation suitable for LLM/AI consumption.",
+  "type": "array",
+  "items": {
+    "$ref": "models-1.0.schema.json#/$defs/MethodInfo"
+  },
+  "examples": [
+    [
+      {
+        "type": "Newtonsoft.Json.JsonConvert",
+        "method": "SerializeObject",
+        "signature": "public static string SerializeObject(object value)",
+        "summary": "Serializes the specified object to a JSON string.",
+        "params": {
+          "value": "The object to serialize."
+        },
+        "returns": "A JSON string representation of the object.",
+        "parameters": [
+          {
+            "name": "value",
+            "type": "System.Object"
+          }
+        ],
+        "returnType": "System.String"
+      },
+      {
+        "type": "Newtonsoft.Json.JsonConvert",
+        "method": "DeserializeObject",
+        "signature": "public static object DeserializeObject(string value)",
+        "summary": "Deserializes the JSON to a .NET object.",
+        "params": {
+          "value": "The JSON to deserialize."
+        },
+        "returns": "The deserialized object from the JSON string.",
+        "parameters": [
+          {
+            "name": "value",
+            "type": "System.String"
+          }
+        ],
+        "returnType": "System.Object"
+      },
+      {
+        "type": "Newtonsoft.Json.Linq.JObject",
+        "method": "Parse",
+        "signature": "public static JObject Parse(string json)",
+        "summary": "Parses a JSON string into a JObject.",
+        "params": {
+          "json": "The JSON string to parse."
+        },
+        "returns": "A JObject populated from the JSON string.",
+        "parameters": [
+          {
+            "name": "json",
+            "type": "System.String"
+          }
+        ],
+        "returnType": "Newtonsoft.Json.Linq.JObject"
+      }
+    ]
+  ]
+}

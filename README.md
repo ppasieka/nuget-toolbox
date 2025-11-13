@@ -224,6 +224,67 @@ nuget-toolbox diff \
 
 ---
 
+### `schema` – Export JSON Schemas
+
+Export JSON Schema definitions for command outputs, optimized for validation and LLM/AI consumption.
+
+```bash
+# Export schema for a specific command
+nuget-toolbox schema --command find
+
+# Export schema for all commands
+nuget-toolbox schema --all
+
+# Export all schemas to a directory
+nuget-toolbox schema --all --output schemas/
+
+# Export models schema (shared definitions)
+nuget-toolbox schema --command models
+```
+
+**Schema Features:**
+- ✅ **JSON Schema Draft 2020-12** – Latest standard
+- ✅ **Comprehensive documentation** – Every field has descriptions, examples, and format constraints
+- ✅ **LLM/AI optimized** – Designed for consumption by AI agents with semantic annotations
+- ✅ **Shared models** – Reusable definitions via `$ref` to models schema
+- ✅ **Validation ready** – Use with any JSON Schema validator
+
+**Output (find.schema.json):**
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nuget-toolbox.local/schemas/find-1.0.schema.json",
+  "title": "NuGetToolbox Find Command Output",
+  "description": "JSON output schema for the 'find' command...",
+  "$ref": "models-1.0.schema.json#/$defs/PackageInfo",
+  "examples": [...]
+}
+```
+
+**Options:**
+- `--command, -c` – Command name (find, list-types, export-signatures, diff, models)
+- `--all, -a` – Export all schemas
+- `--output, -o` – Output file or directory path (default: stdout)
+
+**Validating command outputs:**
+```bash
+# Using ajv-cli
+npm install -g ajv-cli
+nuget-toolbox find --package "Newtonsoft.Json" > result.json
+nuget-toolbox schema --command find > find.schema.json
+ajv validate -s find.schema.json -d result.json
+
+# Using Python jsonschema
+pip install jsonschema
+python -c "
+import json, jsonschema
+with open('find.schema.json') as sf, open('result.json') as df:
+    jsonschema.validate(json.load(df), json.load(sf))
+"
+```
+
+---
+
 ## 🏗️ Architecture
 
 ```

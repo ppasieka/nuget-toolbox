@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nuget-toolbox.local/schemas/models-1.0.schema.json",
+  "title": "NuGetToolbox Shared Models",
+  "description": "Common data models used across all NuGetToolbox CLI commands. These models represent NuGet packages, types, methods, and API differences for consumption by validation tools and AI agents.",
+  "$defs": {
+    "PackageInfo": {
+      "type": "object",
+      "title": "Package Information",
+      "description": "Metadata about a resolved NuGet package including version, target frameworks, and local cache path. Used by the 'find' command.",
+      "properties": {
+        "packageId": {
+          "type": "string",
+          "description": "The unique NuGet package identifier (e.g., 'Newtonsoft.Json'). Case-insensitive. Used to locate packages on NuGet feeds.",
+          "examples": ["Newtonsoft.Json", "Microsoft.Extensions.Logging", "Serilog"]
+        },
+        "resolvedVersion": {
+          "type": "string",
+          "description": "The resolved semantic version of the package (e.g., '13.0.3'). May differ from requested version if 'latest' was requested or if version resolution selected a different version.",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?(\\+[a-zA-Z0-9.-]+)?$",
+          "examples": ["13.0.3", "1.0.0-beta.1", "2.1.0"]
+        },
+        "resolved": {
+          "type": "boolean",
+          "description": "Indicates whether the package was successfully resolved from NuGet feeds. True if found, false if resolution failed."
+        },
+        "source": {
+          "type": ["string", "null"],
+          "description": "The NuGet feed URL from which the package was resolved (e.g., 'https://api.nuget.org/v3/index.json'). Null if package was not resolved.",
+          "format": "uri",
+          "examples": ["https://api.nuget.org/v3/index.json", "https://pkgs.dev.azure.com/myorg/_packaging/myfeed/nuget/v3/index.json"]
+        },
+        "nupkgPath": {
+          "type": ["string", "null"],
+          "description": "Absolute file system path to the downloaded .nupkg file in the NuGet global packages cache. Null if package was not successfully downloaded.",
+          "examples": ["C:\\Users\\user\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg", "/home/user/.nuget/packages/newtonsoft.json/13.0.3/newtonsoft.json.13.0.3.nupkg"]
+        },
+        "targetFrameworks": {
+          "type": ["array", "null"],
+          "description": "List of Target Framework Monikers (TFMs) supported by this package (e.g., ['net8.0', 'netstandard2.0']). Extracted from the package's lib/ directory. Null if package was not resolved or has no assemblies.",
+          "items": {
+            "type": "string",
+            "description": "A Target Framework Moniker (TFM) such as 'net8.0', 'netstandard2.0', 'net472', or 'net6.0-windows'.",
+            "pattern": "^(net[0-9]+(\\.[0-9]+)?(-[a-z0-9]+)?|netstandard[0-9]+(\\.[0-9]+)?|netcoreapp[0-9]+(\\.[0-9]+)?)$",
+            "examples": ["net8.0", "netstandard2.0", "net472", "net6.0-windows"]
+          },
+          "minItems": 0
+        }
+      },
+      "required": ["packageId", "resolvedVersion", "resolved"],
+      "examples": [
+        {
+          "packageId": "Newtonsoft.Json",
+          "resolvedVersion": "13.0.3",
+          "resolved": true,
+          "source": "https://api.nuget.org/v3/index.json",
+          "targetFrameworks": ["net8.0", "netstandard2.0", "net472"],
+          "nupkgPath": "C:\\Users\\user\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg"
+        }
+      ]
+    },
+    "TypeInfo": {
+      "type": "object",
+      "title": "Type Information",
+      "description": "Metadata about a public type (class, interface, struct, or enum) extracted from an assembly. Used by 'list-types' command and as part of diff results.",
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "The fully-qualified namespace of the type (e.g., 'System.Collections.Generic'). Empty string for types in the global namespace.",
+          "examples": ["Newtonsoft.Json", "System.Collections.Generic", "Microsoft.Extensions.Logging", ""]
+        },
+        "name": {
+          "type": "string",
+          "description": "The simple name of the type without namespace or generic arity markers (e.g., 'List' not 'List`1'). For nested types, includes the parent type name with '+' separator.",
+          "examples": ["JsonConvert", "List", "ILogger", "Parent+NestedType"]
+        },
+        "kind": {
+          "type": "string",
+          "description": "The kind of type declaration. Indicates whether the type is a class, interface, struct, or enum.",
+          "enum": ["class", "interface", "struct", "enum"],
+          "examples": ["class", "interface"]
+        }
+      },
+      "required": ["namespace", "name", "kind"],
+      "examples": [
+        {
+          "namespace": "Newtonsoft.Json",
+          "name": "JsonConvert",
+          "kind": "class"
+        },
+        {
+          "namespace": "System.Collections.Generic",
+          "name": "IEnumerable",
+          "kind": "interface"
+        }
+      ]
+    },
+    "MethodInfo": {
+      "type": "object",
+      "title": "Method Information",
+      "description": "Metadata about a public method including its C# signature, XML documentation, and parameter/return type information. Used by 'export-signatures' command to provide LLM-friendly API documentation.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Fully-qualified type name containing this method (e.g., 'Newtonsoft.Json.JsonConvert'). Includes namespace and parent type.",
+          "examples": ["Newtonsoft.Json.JsonConvert", "System.String", "Microsoft.Extensions.Logging.LoggerExtensions"]
+        },
+        "method": {
+          "type": "string",
+          "description": "The simple method name without parameters, return type, or generic arity (e.g., 'SerializeObject', 'ToString'). For constructors, this is '.ctor'. For operators, includes 'op_' prefix.",
+          "examples": ["SerializeObject", "ToString", "Parse", ".ctor", "op_Equality"]
+        },
+        "signature": {
+          "type": "string",
+          "description": "The full C# method signature as rendered by Roslyn, including modifiers, return type, method name, and parameters with types (e.g., 'public static string SerializeObject(object value)'). This is the canonical representation for documentation.",
+          "examples": [
+            "public static string SerializeObject(object value)",
+            "public override string ToString()",
+            "public static int Parse(string s, IFormatProvider provider)"
+          ]
+        },
+        "summary": {
+          "type": ["string", "null"],
+          "description": "XML documentation summary extracted from the package's .xml doc file. Provides a human-readable description of what the method does. Null if no documentation is available for this method.",
+          "examples": ["Serializes the specified object to a JSON string.", "Returns a string that represents the current object."]
+        },
+        "params": {
+          "type": ["object", "null"],
+          "description": "Dictionary mapping parameter names to their XML documentation descriptions. Keys are parameter names (e.g., 'value', 'formatting'), values are documentation strings. Null if no parameter documentation is available.",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Documentation for a single parameter."
+          },
+          "examples": [
+            {
+              "value": "The object to serialize.",
+              "formatting": "Specifies formatting options for the output JSON."
+            }
+          ]
+        },
+        "returns": {
+          "type": ["string", "null"],
+          "description": "XML documentation describing what the method returns. Explains the meaning and format of the return value. Null if no return documentation is available or method returns void.",
+          "examples": ["A JSON string representation of the object.", "The parsed integer value."]
+        },
+        "parameters": {
+          "type": ["array", "null"],
+          "description": "Structured list of method parameters with type and name information extracted via reflection. Provides machine-readable parameter metadata. Null if method has no parameters.",
+          "items": {
+            "$ref": "#/$defs/ParameterInfo"
+          },
+          "examples": [
+            [
+              { "name": "value", "type": "System.Object" },
+              { "name": "formatting", "type": "Newtonsoft.Json.Formatting" }
+            ]
+          ]
+        },
+        "returnType": {
+          "type": ["string", "null"],
+          "description": "The fully-qualified return type of the method (e.g., 'System.String', 'System.Int32', 'System.Void'). For void methods, this is 'System.Void'. Null should not occur in practice.",
+          "examples": ["System.String", "System.Void", "System.Int32", "Newtonsoft.Json.Linq.JObject"]
+        }
+      },
+      "required": ["type", "method", "signature"],
+      "examples": [
+        {
+          "type": "Newtonsoft.Json.JsonConvert",
+          "method": "SerializeObject",
+          "signature": "public static string SerializeObject(object value)",
+          "summary": "Serializes the specified object to a JSON string.",
+          "params": {
+            "value": "The object to serialize."
+          },
+          "returns": "A JSON string representation of the object.",
+          "parameters": [
+            { "name": "value", "type": "System.Object" }
+          ],
+          "returnType": "System.String"
+        }
+      ]
+    },
+    "ParameterInfo": {
+      "type": "object",
+      "title": "Parameter Information",
+      "description": "Metadata about a method parameter including its name and fully-qualified type. Extracted via reflection for structured API analysis.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The parameter name as declared in the method signature (e.g., 'value', 'formatting', 'cancellationToken'). Does not include type or modifiers.",
+          "examples": ["value", "formatting", "cancellationToken", "source"]
+        },
+        "type": {
+          "type": "string",
+          "description": "The fully-qualified type of the parameter including namespace (e.g., 'System.Object', 'System.String', 'Newtonsoft.Json.Formatting'). For generic types, includes arity and type parameters.",
+          "examples": ["System.Object", "System.String", "Newtonsoft.Json.Formatting", "System.Collections.Generic.List<System.String>"]
+        }
+      },
+      "required": ["name", "type"],
+      "examples": [
+        { "name": "value", "type": "System.Object" },
+        { "name": "formatting", "type": "Newtonsoft.Json.Formatting" }
+      ]
+    },
+    "DiffResult": {
+      "type": "object",
+      "title": "API Diff Result",
+      "description": "Result of comparing two versions of a package's public API, identifying breaking changes, additions, and removals. Used by 'diff' command to detect API compatibility issues between package versions.",
+      "properties": {
+        "packageId": {
+          "type": "string",
+          "description": "The NuGet package identifier being compared (e.g., 'Newtonsoft.Json').",
+          "examples": ["Newtonsoft.Json", "Microsoft.Extensions.Logging"]
+        },
+        "versionFrom": {
+          "type": "string",
+          "description": "The baseline (older) version of the package being compared.",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?(\\+[a-zA-Z0-9.-]+)?$",
+          "examples": ["13.0.1", "1.0.0"]
+        },
+        "versionTo": {
+          "type": "string",
+          "description": "The target (newer) version of the package being compared.",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?(\\+[a-zA-Z0-9.-]+)?$",
+          "examples": ["13.0.3", "2.0.0"]
+        },
+        "tfm": {
+          "type": "string",
+          "description": "The Target Framework Moniker (TFM) used for comparison (e.g., 'net8.0'). Ensures both versions are compared using the same runtime.",
+          "pattern": "^(net[0-9]+(\\.[0-9]+)?(-[a-z0-9]+)?|netstandard[0-9]+(\\.[0-9]+)?|netcoreapp[0-9]+(\\.[0-9]+)?)$",
+          "examples": ["net8.0", "netstandard2.0"]
+        },
+        "breaking": {
+          "type": ["array", "null"],
+          "description": "List of breaking changes detected between versions. Each item describes a removed type, removed method, or changed signature that could break consuming code. Empty array if no breaking changes.",
+          "items": {
+            "$ref": "#/$defs/DiffItem"
+          }
+        },
+        "added": {
+          "type": ["array", "null"],
+          "description": "List of new types added in the target version that were not present in the baseline version. These are non-breaking additions to the API surface.",
+          "items": {
+            "$ref": "#/$defs/TypeInfo"
+          }
+        },
+        "removed": {
+          "type": ["array", "null"],
+          "description": "List of types removed in the target version that were present in the baseline version. These are breaking changes and a subset of the 'breaking' array.",
+          "items": {
+            "$ref": "#/$defs/TypeInfo"
+          }
+        },
+        "compatible": {
+          "type": "boolean",
+          "description": "True if the API change is backward-compatible (no breaking changes detected), false if there are breaking changes that could affect consumers."
+        }
+      },
+      "required": ["packageId", "versionFrom", "versionTo", "tfm", "compatible"],
+      "examples": [
+        {
+          "packageId": "Newtonsoft.Json",
+          "versionFrom": "13.0.1",
+          "versionTo": "13.0.3",
+          "tfm": "net8.0",
+          "breaking": [],
+          "added": [],
+          "removed": [],
+          "compatible": true
+        }
+      ]
+    },
+    "DiffItem": {
+      "type": "object",
+      "title": "Diff Item",
+      "description": "Represents a single breaking change or API modification between package versions. Describes what changed and why it's considered breaking.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The fully-qualified type name where the breaking change occurred (e.g., 'Newtonsoft.Json.JsonConvert').",
+          "examples": ["Newtonsoft.Json.JsonConvert", "System.Text.Json.JsonSerializer"]
+        },
+        "method": {
+          "type": "string",
+          "description": "The method name that was removed or changed. Empty string for type-level changes.",
+          "examples": ["SerializeObject", "DeserializeObject", ""]
+        },
+        "reason": {
+          "type": ["string", "null"],
+          "description": "Human-readable explanation of why this change is breaking (e.g., 'Method removed', 'Signature changed', 'Type removed'). Null if reason is not specified.",
+          "examples": ["Method removed", "Signature changed - parameter type changed", "Type removed from public API"]
+        },
+        "signature": {
+          "type": ["string", "null"],
+          "description": "The original method signature before the change. Helps identify exactly which overload was affected. Null for type-level changes.",
+          "examples": ["public static string SerializeObject(object value)", "public void DoSomething(int x)"]
+        }
+      },
+      "required": ["type", "method"]
+    },
+    "DirectDependency": {
+      "type": "object",
+      "title": "Direct Dependency",
+      "description": "Represents a direct package dependency with target framework and version range information. Extracted from .nuspec metadata.",
+      "properties": {
+        "targetFramework": {
+          "type": "string",
+          "description": "The Target Framework Moniker (TFM) for which this dependency applies (e.g., 'net8.0', 'netstandard2.0'). Dependencies may be framework-specific.",
+          "pattern": "^(net[0-9]+(\\.[0-9]+)?(-[a-z0-9]+)?|netstandard[0-9]+(\\.[0-9]+)?|netcoreapp[0-9]+(\\.[0-9]+)?)$",
+          "examples": ["net8.0", "netstandard2.0", "net472"]
+        },
+        "packageId": {
+          "type": "string",
+          "description": "The NuGet package identifier of the dependency (e.g., 'System.Text.Json').",
+          "examples": ["System.Text.Json", "Microsoft.Extensions.DependencyInjection", "Newtonsoft.Json"]
+        },
+        "versionRange": {
+          "type": "string",
+          "description": "The NuGet version range constraint for this dependency (e.g., '[1.0.0,)', '2.0.0', '[1.0.0, 2.0.0)'). Follows NuGet version range syntax.",
+          "examples": ["[1.0.0,)", "2.0.0", "[1.0.0, 2.0.0)", "[13.0.1, )"]
+        }
+      },
+      "required": ["targetFramework", "packageId", "versionRange"],
+      "examples": [
+        {
+          "targetFramework": "net8.0",
+          "packageId": "System.Text.Json",
+          "versionRange": "[8.0.0, )"
+        }
+      ]
+    }
+  }
+}

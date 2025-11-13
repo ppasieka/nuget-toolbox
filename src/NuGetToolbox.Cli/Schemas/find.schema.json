@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nuget-toolbox.local/schemas/find-1.0.schema.json",
+  "title": "NuGetToolbox Find Command Output",
+  "description": "JSON output schema for the 'find' command, which resolves a NuGet package by ID and optional version, returning package metadata including resolved version, target frameworks, and local cache path.",
+  "$ref": "models-1.0.schema.json#/$defs/PackageInfo",
+  "examples": [
+    {
+      "packageId": "Newtonsoft.Json",
+      "resolvedVersion": "13.0.3",
+      "resolved": true,
+      "source": "https://api.nuget.org/v3/index.json",
+      "targetFrameworks": ["net8.0", "netstandard2.0", "net6.0", "net472"],
+      "nupkgPath": "C:\\Users\\user\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg"
+    },
+    {
+      "packageId": "Microsoft.Extensions.Logging",
+      "resolvedVersion": "8.0.1",
+      "resolved": true,
+      "source": "https://api.nuget.org/v3/index.json",
+      "targetFrameworks": ["net8.0", "net7.0", "net6.0", "netstandard2.0"],
+      "nupkgPath": "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.logging\\8.0.1\\microsoft.extensions.logging.8.0.1.nupkg"
+    },
+    {
+      "packageId": "NonExistentPackage",
+      "resolvedVersion": "",
+      "resolved": false,
+      "source": null,
+      "targetFrameworks": null,
+      "nupkgPath": null
+    }
+  ]
+}

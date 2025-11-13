@@ -54,6 +54,8 @@ dotnet format
 | Run CLI | `dotnet run --project src/NuGetToolbox.Cli -- <command> <options>` |
 | Format | `dotnet format` |
 | Check diagnostics | `dotnet build --no-restore` |
+| Export schema | `dotnet run --project src/NuGetToolbox.Cli -- schema --command <name>` |
+| Export all schemas | `dotnet run --project src/NuGetToolbox.Cli -- schema --all --output schemas/` |
 
 ## Project Structure
 
@@ -63,7 +65,8 @@ src/NuGetToolbox.Cli/
 │   ├── FindCommand.cs     # Resolve package by ID + version
 │   ├── ListTypesCommand.cs
 │   ├── ExportSignaturesCommand.cs
-│   └── DiffCommand.cs
+│   ├── DiffCommand.cs
+│   └── SchemaCommand.cs   # Export JSON Schema definitions
 ├── Services/              # Core business logic
 │   ├── NuGetPackageResolver.cs    # V3 API integration
 │   ├── AssemblyInspector.cs       # MetadataLoadContext wrapper
@@ -75,10 +78,17 @@ src/NuGetToolbox.Cli/
 │   ├── TypeInfo.cs
 │   ├── MethodInfo.cs
 │   └── DiffResult.cs
+├── Schemas/               # JSON Schema definitions (embedded resources)
+│   ├── models-1.0.schema.json          # Shared model definitions
+│   ├── find.schema.json                # Find command output schema
+│   ├── list-types.schema.json          # List-types command output schema
+│   ├── export-signatures.schema.json   # Export-signatures command output schema
+│   └── diff.schema.json                # Diff command output schema
 └── Program.cs             # CLI root setup
 
 tests/NuGetToolbox.Tests/
 ├── PackageResolverTests.cs
+├── SchemaCommandTests.cs
 └── UnitTest1.cs
 ```
 
@@ -127,6 +137,23 @@ tests/NuGetToolbox.Tests/
 - Compares two `List<MethodInfo>` sets
 - Identifies: breaking changes, added types, removed types
 - Returns: `DiffResult` with breaking[] array
+
+**SchemaCommand**
+- Exports JSON Schema (Draft 2020-12) definitions for all CLI command outputs
+- Loads schemas from embedded resources (no external files needed)
+- Supports `--command <name>` for specific schemas, `--all` for batch export
+- Optimized for LLM/AI consumption with comprehensive field descriptions and examples
+
+### Schemas
+
+All schemas are JSON Schema Draft 2020-12 compliant and include:
+- **Comprehensive documentation** - Every property has `description`, `examples`, and format constraints
+- **Shared definitions** - models-1.0.schema.json contains $defs for PackageInfo, TypeInfo, MethodInfo, etc.
+- **Command-specific schemas** - find.schema.json, list-types.schema.json, export-signatures.schema.json, diff.schema.json
+- **$ref resolution** - Command schemas reference models schema for reusable definitions
+- **LLM/AI optimization** - Semantic annotations, pattern constraints, and examples for AI agent consumption
+
+Schema versioning follows semantic versioning (models-1.0, models-2.0, etc.) with filenames including version numbers.
 
 ### Models
 

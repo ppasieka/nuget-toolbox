@@ -8,5 +8,6 @@ rootCommand.Subcommands.Add(FindCommand.Create());
 rootCommand.Subcommands.Add(ListTypesCommand.Create());
 rootCommand.Subcommands.Add(ExportSignaturesCommand.Create());
 rootCommand.Subcommands.Add(DiffCommand.Create());
+rootCommand.Subcommands.Add(SchemaCommand.Create());
 
 return rootCommand.Parse(args).Invoke();

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nuget-toolbox.local/schemas/list-types-1.0.schema.json",
+  "title": "NuGetToolbox List-Types Command Output",
+  "description": "JSON output schema for the 'list-types' command, which extracts public type information (classes, interfaces, structs, enums) from a NuGet package's assemblies. Returns an array of TypeInfo objects.",
+  "type": "array",
+  "items": {
+    "$ref": "models-1.0.schema.json#/$defs/TypeInfo"
+  },
+  "examples": [
+    [
+      {
+        "namespace": "Newtonsoft.Json",
+        "name": "JsonConvert",
+        "kind": "class"
+      },
+      {
+        "namespace": "Newtonsoft.Json",
+        "name": "JsonSerializer",
+        "kind": "class"
+      },
+      {
+        "namespace": "Newtonsoft.Json.Linq",
+        "name": "JObject",
+        "kind": "class"
+      },
+      {
+        "namespace": "Newtonsoft.Json",
+        "name": "IJsonLineInfo",
+        "kind": "interface"
+      },
+      {
+        "namespace": "Newtonsoft.Json",
+        "name": "Formatting",
+        "kind": "enum"
+      }
+    ]
+  ]
+}
