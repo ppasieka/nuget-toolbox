@@ -19,6 +19,15 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 # AGENTS.md - NuGet Toolbox Development Guide
 
+## Development workflow
+
+- use .NET 8+ and the `dotnet build` command
+- Windows with Powershell 7+ to execute and spawn processes (not CMD, Bash, etc.)
+- Git for version control - do not commit on your own, but you may use it to show status or inspect commits
+- make sure that build is green after you finish your work
+- run tests every time you make a change
+- in case of missing knowledge you can always use the microsoft documentation tools
+
 ## Quick Start
 
 ```bash

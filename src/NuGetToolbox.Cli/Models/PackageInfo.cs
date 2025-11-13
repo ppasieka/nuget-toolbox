@@ -10,7 +10,7 @@ public class PackageInfo
     [JsonPropertyName("packageId")]
     public required string PackageId { get; set; }
 
-    [JsonPropertyName("version")]
+    [JsonPropertyName("resolvedVersion")]
     public required string Version { get; set; }
 
     [JsonPropertyName("resolved")]
@@ -22,6 +22,6 @@ public class PackageInfo
     [JsonPropertyName("nupkgPath")]
     public string? NupkgPath { get; set; }
 
-    [JsonPropertyName("tfms")]
+    [JsonPropertyName("targetFrameworks")]
     public List<string>? Tfms { get; set; }
 }
