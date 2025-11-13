@@ -1,4 +1,11 @@
 using System.CommandLine;
+using System.CommandLine.Invocation;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using NuGet.Packaging;
+using NuGetToolbox.Cli.Services;
 
 namespace NuGetToolbox.Cli.Commands;
 
@@ -7,7 +14,7 @@ namespace NuGetToolbox.Cli.Commands;
 /// </summary>
 public static class ListTypesCommand
 {
-    public static Command Create()
+    public static Command Create(IServiceProvider? serviceProvider = null)
     {
         var packageOption = new Option<string>("--package", "-p")
         {
@@ -48,7 +55,127 @@ public static class ListTypesCommand
             var tfm = parseResult.GetValue(tfmOption);
             var output = parseResult.GetValue(outputOption);
 
-            throw new NotImplementedException();
+            return HandlerAsync(package!, version, tfm, output, serviceProvider).GetAwaiter().GetResult();
         }
+    }
+
+    private static async Task<int> HandlerAsync(
+        string packageId,
+        string? version,
+        string? tfm,
+        string? output,
+        IServiceProvider? serviceProvider)
+    {
+        try
+        {
+            serviceProvider ??= CreateDefaultServiceProvider();
+
+            var resolver = serviceProvider.GetRequiredService<NuGetPackageResolver>();
+            var inspector = serviceProvider.GetRequiredService<AssemblyInspector>();
+            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+            var logger = loggerFactory.CreateLogger("ListTypesCommand");
+
+            logger.LogInformation("Resolving package {PackageId} (version: {Version})", packageId, version ?? "latest");
+
+            var packageInfo = await resolver.ResolvePackageAsync(packageId, version);
+
+            if (packageInfo == null || !packageInfo.Resolved || string.IsNullOrEmpty(packageInfo.NupkgPath))
+            {
+                logger.LogError("Package {PackageId} not found", packageId);
+                return 1;
+            }
+
+            var assemblyPaths = await ExtractAssembliesAsync(packageInfo.NupkgPath, tfm, logger);
+
+            if (assemblyPaths.Count == 0)
+            {
+                logger.LogWarning("No assemblies found in package for TFM {Tfm}", tfm ?? "any");
+                return 1;
+            }
+
+            var allTypes = new List<Models.TypeInfo>();
+            foreach (var assemblyPath in assemblyPaths)
+            {
+                var types = inspector.ExtractPublicTypes(assemblyPath);
+                allTypes.AddRange(types);
+            }
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+
+            var json = JsonSerializer.Serialize(allTypes, options);
+
+            if (!string.IsNullOrEmpty(output))
+            {
+                await File.WriteAllTextAsync(output, json);
+                logger.LogInformation("Type information written to {OutputPath}", output);
+            }
+            else
+            {
+                Console.WriteLine(json);
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            var loggerFactory = serviceProvider?.GetService<ILoggerFactory>();
+            var logger = loggerFactory?.CreateLogger("ListTypesCommand");
+            logger?.LogError(ex, "Failed to list types for package {PackageId}", packageId);
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<List<string>> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger)
+    {
+        var assemblies = new List<string>();
+
+        using var packageReader = new PackageArchiveReader(nupkgPath);
+        var libItems = await packageReader.GetLibItemsAsync(CancellationToken.None);
+
+        var targetGroup = string.IsNullOrEmpty(tfm)
+            ? libItems.OrderByDescending(g => g.TargetFramework.Version).FirstOrDefault()
+            : libItems.FirstOrDefault(g => g.TargetFramework.GetShortFolderName() == tfm);
+
+        if (targetGroup == null)
+        {
+            logger.LogWarning("No lib items found for TFM {Tfm}", tfm ?? "any");
+            return assemblies;
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), $"nuget-toolbox-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+
+        foreach (var item in targetGroup.Items.Where(i => i.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)))
+        {
+            var fileName = Path.GetFileName(item);
+            var destPath = Path.Combine(tempDir, fileName);
+
+            using (var stream = packageReader.GetStream(item))
+            using (var fileStream = File.Create(destPath))
+            {
+                await stream.CopyToAsync(fileStream);
+            }
+
+            assemblies.Add(destPath);
+        }
+
+        logger.LogInformation("Extracted {Count} assemblies from {Tfm}", assemblies.Count, targetGroup.TargetFramework.GetShortFolderName());
+
+        return assemblies;
+    }
+
+    private static IServiceProvider CreateDefaultServiceProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddConsole());
+        services.AddScoped<NuGetPackageResolver>();
+        services.AddScoped<AssemblyInspector>();
+        return services.BuildServiceProvider();
     }
 }

@@ -1,48 +1,234 @@
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Text.Json;
+using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using NuGetToolbox.Cli.Models;
 
 namespace NuGetToolbox.Cli.Services;
 
 /// <summary>
-/// Exports method signatures in idiomatic C# using Roslyn symbol display.
+/// Exports method signatures with documentation using Roslyn symbol display.
 /// </summary>
 public class SignatureExporter
 {
-    private readonly ILogger<SignatureExporter> _logger;
     private readonly AssemblyInspector _assemblyInspector;
-    private readonly XmlDocumentationProvider _documentationProvider;
+    private readonly XmlDocumentationProvider _xmlDocProvider;
+    private readonly ILogger<SignatureExporter> _logger;
+
+    private static readonly SymbolDisplayFormat SignatureFormat = new SymbolDisplayFormat(
+        globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
+        typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+        genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+        memberOptions: SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeAccessibility | SymbolDisplayMemberOptions.IncludeModifiers,
+        parameterOptions: SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName | SymbolDisplayParameterOptions.IncludeParamsRefOut,
+        miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
 
     public SignatureExporter(
-        ILogger<SignatureExporter> logger,
         AssemblyInspector assemblyInspector,
-        XmlDocumentationProvider documentationProvider)
+        XmlDocumentationProvider xmlDocProvider,
+        ILogger<SignatureExporter> logger)
     {
-        _logger = logger;
         _assemblyInspector = assemblyInspector;
-        _documentationProvider = documentationProvider;
+        _xmlDocProvider = xmlDocProvider;
+        _logger = logger;
     }
 
     /// <summary>
-    /// Exports public methods from assembly files with signatures and documentation.
+    /// Exports methods from assemblies with optional namespace filtering.
     /// </summary>
-    public List<MethodInfo> ExportMethods(params string[] assemblyPaths)
+    public List<Models.MethodInfo> ExportMethods(IEnumerable<string> assemblyPaths, string? namespaceFilter = null)
     {
-        throw new NotImplementedException();
+        var methods = new List<Models.MethodInfo>();
+        var pathsArray = assemblyPaths.ToArray();
+
+        if (pathsArray.Length == 0)
+        {
+            _logger.LogWarning("No assembly paths provided");
+            return methods;
+        }
+
+        var resolver = new PathAssemblyResolver(pathsArray.Concat(GetRuntimeAssemblies()));
+        using var mlc = new MetadataLoadContext(resolver);
+
+        foreach (var assemblyPath in pathsArray)
+        {
+            try
+            {
+                var assembly = mlc.LoadFromAssemblyPath(assemblyPath);
+                var xmlPath = Path.ChangeExtension(assemblyPath, ".xml");
+                
+                if (File.Exists(xmlPath))
+                {
+                    _xmlDocProvider.LoadDocumentation(xmlPath);
+                }
+
+                var publicTypes = assembly.GetTypes()
+                    .Where(t => t.IsPublic || t.IsNestedPublic);
+
+                if (namespaceFilter != null)
+                {
+                    publicTypes = publicTypes.Where(t => 
+                        t.Namespace != null && t.Namespace.StartsWith(namespaceFilter, StringComparison.Ordinal));
+                }
+
+                foreach (var type in publicTypes)
+                {
+                    var publicMethods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                        .Where(m => !m.IsSpecialName);
+
+                    foreach (var method in publicMethods)
+                    {
+                        methods.Add(CreateMethodInfo(method, type));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to process assembly: {AssemblyPath}", assemblyPath);
+            }
+        }
+
+        _logger.LogInformation("Exported {Count} methods", methods.Count);
+        return methods;
     }
 
     /// <summary>
     /// Exports methods to JSON format.
     /// </summary>
-    public string ExportToJson(List<MethodInfo> methods)
+    public string ExportToJson(List<Models.MethodInfo> methods)
     {
-        throw new NotImplementedException();
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        return JsonSerializer.Serialize(methods, options);
     }
 
     /// <summary>
-    /// Exports methods to JSONL format (one per line).
+    /// Exports methods to JSONL (JSON Lines) format.
     /// </summary>
-    public string ExportToJsonL(List<MethodInfo> methods)
+    public string ExportToJsonL(List<Models.MethodInfo> methods)
     {
-        throw new NotImplementedException();
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = false,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        var lines = methods.Select(m => JsonSerializer.Serialize(m, options));
+        return string.Join('\n', lines);
+    }
+
+    private Models.MethodInfo CreateMethodInfo(System.Reflection.MethodInfo method, Type declaringType)
+    {
+        var signature = BuildSignature(method);
+        var docId = GetDocumentationCommentId(method);
+
+        var methodInfo = new Models.MethodInfo
+        {
+            Type = declaringType.FullName ?? declaringType.Name,
+            Method = method.Name,
+            Signature = signature,
+            Summary = _xmlDocProvider.GetSummary(docId),
+            Params = _xmlDocProvider.GetParameters(docId),
+            Returns = _xmlDocProvider.GetReturns(docId)
+        };
+
+        return methodInfo;
+    }
+
+    private static string BuildSignature(System.Reflection.MethodInfo method)
+    {
+        var returnType = method.ReturnType.IsGenericType
+            ? FormatGenericType(method.ReturnType)
+            : method.ReturnType.Name;
+
+        var parameters = string.Join(", ", method.GetParameters().Select(p =>
+        {
+            var prefix = p.IsOut ? "out " : p.ParameterType.IsByRef ? "ref " : "";
+            var paramType = p.ParameterType.IsByRef
+                ? (p.ParameterType.GetElementType()?.Name ?? "unknown")
+                : (p.ParameterType.IsGenericType ? FormatGenericType(p.ParameterType) : p.ParameterType.Name);
+            return $"{prefix}{paramType} {p.Name}";
+        }));
+
+        var genericParams = method.IsGenericMethod
+            ? $"<{string.Join(", ", method.GetGenericArguments().Select(t => t.Name))}>"
+            : "";
+
+        var modifiers = method.IsStatic ? "static " : "";
+        var accessibility = method.IsPublic ? "public " : method.IsFamily ? "protected " : "";
+
+        return $"{accessibility}{modifiers}{returnType} {method.Name}{genericParams}({parameters})";
+    }
+
+    private static string FormatGenericType(Type type)
+    {
+        if (!type.IsGenericType)
+            return type.Name;
+
+        var genericTypeName = type.Name.Contains('`')
+            ? type.Name.Substring(0, type.Name.IndexOf('`'))
+            : type.Name;
+
+        var genericArgs = string.Join(", ", type.GetGenericArguments().Select(t =>
+            t.IsGenericType ? FormatGenericType(t) : t.Name));
+
+        return $"{genericTypeName}<{genericArgs}>";
+    }
+
+    private static string GetDocumentationCommentId(System.Reflection.MethodInfo method)
+    {
+        var declaringType = method.DeclaringType;
+        var typeFullName = declaringType?.FullName?.Replace('+', '.');
+
+        var parameters = method.GetParameters();
+        var paramList = parameters.Length > 0
+            ? $"({string.Join(",", parameters.Select(p => GetParameterTypeString(p.ParameterType)))})"
+            : string.Empty;
+
+        var genericSuffix = method.IsGenericMethod
+            ? $"``{method.GetGenericArguments().Length}"
+            : string.Empty;
+
+        return $"M:{typeFullName}.{method.Name}{genericSuffix}{paramList}";
+    }
+
+    private static string GetParameterTypeString(Type type)
+    {
+        if (type.IsByRef)
+        {
+            var elementType = type.GetElementType();
+            return GetParameterTypeString(elementType!) + "@";
+        }
+
+        if (type.IsGenericParameter)
+        {
+            if (type.DeclaringMethod != null)
+                return $"``{type.GenericParameterPosition}";
+            return $"`{type.GenericParameterPosition}";
+        }
+
+        if (type.IsGenericType)
+        {
+            var genericTypeName = type.GetGenericTypeDefinition().FullName?.Replace('+', '.');
+            var args = type.GetGenericArguments();
+            var argStrings = string.Join(",", args.Select(GetParameterTypeString));
+            return $"{genericTypeName}{{{argStrings}}}";
+        }
+
+        return type.FullName?.Replace('+', '.') ?? type.Name;
+    }
+
+    private static IEnumerable<string> GetRuntimeAssemblies()
+    {
+        var runtimePath = Path.GetDirectoryName(typeof(object).Assembly.Location);
+        if (runtimePath == null)
+            return Array.Empty<string>();
+
+        return Directory.GetFiles(runtimePath, "*.dll");
     }
 }
