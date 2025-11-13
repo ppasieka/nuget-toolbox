@@ -173,7 +173,13 @@ public static class ListTypesCommand
     private static IServiceProvider CreateDefaultServiceProvider()
     {
         var services = new ServiceCollection();
-        services.AddLogging(builder => builder.AddConsole());
+        services.AddLogging(builder => 
+        {
+            var logDir = Path.Combine(Path.GetTempPath(), "nuget-toolbox", "logs");
+            Directory.CreateDirectory(logDir);
+            var logFile = Path.Combine(logDir, $"nuget-toolbox-{DateTime.UtcNow:yyyyMMdd}.log");
+            builder.AddFile(logFile, minimumLevel: LogLevel.Debug);
+        });
         services.AddScoped<NuGetPackageResolver>();
         services.AddScoped<AssemblyInspector>();
         return services.BuildServiceProvider();

@@ -41,21 +41,57 @@ public class AssemblyInspector
             var assembly = metadataContext.LoadFromAssemblyPath(assemblyPath);
             var types = new List<Models.TypeInfo>();
 
-            foreach (var type in assembly.GetTypes())
+            Type[] assemblyTypes;
+            try
             {
-                if (!type.IsPublic)
-                    continue;
-
-                var kind = GetTypeKind(type);
-                if (kind == null)
-                    continue;
-
-                types.Add(new Models.TypeInfo
+                assemblyTypes = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                _logger.LogDebug("ReflectionTypeLoadException encountered. Using partially-loaded types from {AssemblyPath}", assemblyPath);
+                
+                foreach (var loaderException in ex.LoaderExceptions.Where(e => e != null).Distinct())
                 {
-                    Namespace = type.Namespace ?? string.Empty,
-                    Name = type.Name,
-                    Kind = kind
-                });
+                    _logger.LogDebug("Loader exception: {ExceptionMessage}", loaderException!.Message);
+                }
+                
+                assemblyTypes = ex.Types.Where(t => t != null).ToArray()!;
+            }
+
+            foreach (var type in assemblyTypes)
+            {
+                try
+                {
+                    if (!type.IsPublic)
+                        continue;
+
+                    var kind = GetTypeKind(type);
+                    if (kind == null)
+                        continue;
+
+                    types.Add(new Models.TypeInfo
+                    {
+                        Namespace = type.Namespace ?? string.Empty,
+                        Name = type.Name,
+                        Kind = kind
+                    });
+                }
+                catch (TypeLoadException ex)
+                {
+                    _logger.LogDebug("Failed to load type {TypeName}: {Message}", type?.FullName ?? "unknown", ex.Message);
+                }
+                catch (FileNotFoundException ex)
+                {
+                    _logger.LogDebug("Missing dependency for type {TypeName}: {Message}", type?.FullName ?? "unknown", ex.Message);
+                }
+                catch (FileLoadException ex)
+                {
+                    _logger.LogDebug("Failed to load file for type {TypeName}: {Message}", type?.FullName ?? "unknown", ex.Message);
+                }
+                catch (NotSupportedException ex)
+                {
+                    _logger.LogDebug("Type not supported {TypeName}: {Message}", type?.FullName ?? "unknown", ex.Message);
+                }
             }
 
             _logger.LogInformation("Extracted {Count} public types from {AssemblyPath}", types.Count, assemblyPath);

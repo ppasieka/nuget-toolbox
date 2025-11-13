@@ -105,7 +105,18 @@ nuget-toolbox list-types --package "Newtonsoft.Json" --output "types.json"
     { "namespace": "Newtonsoft.Json.Serialization", "name": "JsonSerializerSettings", "kind": "class" }
   ]
 }
+
+Direct dependencies:
+  [net8.0]
+    - System.Runtime (>= 4.3.0)
+  [netstandard2.0]
+    - Microsoft.CSharp (>= 4.3.0)
+
+Tip: To inspect dependencies, run:
+  nuget-toolbox list-types --package <DependencyId>
 ```
+
+**Partial Results:** If a package has missing dependencies, the tool will extract and return all successfully-loaded types. Missing dependencies are logged at Debug level and direct dependencies are displayed to help you inspect them separately.
 
 **Options:**
 - `--package, -p` **[required]** – Package ID
@@ -426,6 +437,7 @@ dotnet run --project src/NuGetToolbox.Cli -- \
 - **Generic method doc IDs** edge cases normalized; unmapped docs not synthesized
 - **Obfuscated/mixed-mode** assemblies may reduce signature readability
 - **Large packages** (>100MB) may require `--no-cache` due to extraction overhead
+- **Missing dependencies**: The tool only inspects the requested package, not its dependency tree. If types reference missing dependencies, those types are skipped and logged at Debug level. Direct dependencies are listed to help you inspect them separately.
 
 ---
 
@@ -509,6 +521,14 @@ A: Any .NET framework TFM in the package. We prefer modern first (net8.0 → net
 
 **Q: How large can packages be?**  
 A: Tested on packages up to 100MB. Larger packages may require extended timeouts.
+
+**Q: What happens if a package has missing dependencies?**  
+A: The tool gracefully handles missing dependencies by extracting partial results. It will:
+- Return all successfully-loaded types
+- Log missing dependencies at Debug level (not shown by default)
+- Display direct dependencies from the package's `.nuspec` file
+- Suggest commands to inspect those dependencies separately
+- Exit with code 0 if partial results were obtained successfully
 
 ---
 

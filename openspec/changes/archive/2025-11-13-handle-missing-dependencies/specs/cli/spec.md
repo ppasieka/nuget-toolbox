@@ -44,7 +44,7 @@ The system SHALL extract type and member metadata from assemblies using Metadata
 
 ### Requirement: Direct Dependency Listing
 
-The system SHALL extract direct package dependencies from a NuGet package's `.nuspec` file and present them grouped by target framework.
+The system SHALL extract direct package dependencies from a NuGet package's `.nuspec` file.
 
 #### Scenario: Read dependencies from package
 - **WHEN** `GetDirectDependenciesAsync` is called with nupkg path
@@ -62,22 +62,18 @@ The system SHALL extract direct package dependencies from a NuGet package's `.nu
 - **THEN** system logs warning and returns empty dependency list
 - **AND** system does not fail the overall operation
 
-### Requirement: Dependency Guidance in CLI Output
+### Requirement: File-Based Logging
 
-The CLI SHALL display direct package dependencies and suggest inspection commands for dependency packages.
+The system SHALL write all logging output to a file instead of console to ensure clean JSON output on stdout.
 
-#### Scenario: Display dependencies with type listing
-- **WHEN** user runs `list-types --package "PackageName"`
-- **THEN** system outputs public types from the package
-- **AND** system displays "Direct dependencies" section grouped by TFM
-- **AND** system shows package ID and version range for each dependency
+#### Scenario: Initialize file logging
+- **WHEN** CLI commands are executed
+- **THEN** system creates log directory in temp folder
+- **AND** system writes logs to daily log file with format `nuget-toolbox-{yyyyMMdd}.log`
+- **AND** system sets minimum log level to Debug
 
-#### Scenario: Suggest dependency inspection
-- **WHEN** package has direct dependencies
-- **THEN** CLI output includes tip: "To inspect dependencies, run: nuget-toolbox list-types --package <DependencyId>"
-- **AND** system does not automatically download or inspect dependencies
-
-#### Scenario: Silent operation for packages without dependencies
-- **WHEN** package has no dependencies
-- **THEN** system does not display dependency section
-- **AND** system proceeds with normal type listing
+#### Scenario: Clean console output
+- **WHEN** user runs commands with JSON output
+- **THEN** only JSON is written to stdout
+- **AND** no logging messages interfere with JSON output
+- **AND** output can be piped to tools like `jq` without errors

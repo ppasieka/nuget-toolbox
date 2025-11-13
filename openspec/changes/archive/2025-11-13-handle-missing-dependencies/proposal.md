@@ -23,10 +23,11 @@ The tool should focus on inspecting **only the requested package**, not its enti
   - Add `GetDirectDependenciesAsync` to `NuGetPackageResolver`
   - Read dependency groups from `PackageArchiveReader.NuspecReader.GetDependencyGroups()`
   - Return structured list with target framework, package ID, and version range
-  - Display to users as informational output
+  - Available for programmatic use (not displayed in CLI output)
 
-- **User guidance**:
-  - CLI output suggests inspecting dependency packages separately
+- **File-based logging**:
+  - All logging writes to `%TEMP%/nuget-toolbox/logs/nuget-toolbox-{date}.log`
+  - Console stdout remains clean for JSON output
   - Exit code remains 0 if partial results are successful
 
 ## Impact

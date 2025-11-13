@@ -270,6 +270,76 @@ public class NuGetPackageResolver
         return tfms;
     }
 
+    /// <summary>
+    /// Extracts direct package dependencies from a NuGet package's .nuspec file.
+    /// </summary>
+    public async Task<List<DirectDependency>> GetDirectDependenciesAsync(
+        string nupkgPath,
+        CancellationToken cancellationToken = default)
+    {
+        var dependencies = new List<DirectDependency>();
+
+        try
+        {
+            if (File.Exists(nupkgPath))
+            {
+                using var packageReader = new PackageArchiveReader(nupkgPath);
+                var nuspecReader = await packageReader.GetNuspecReaderAsync(cancellationToken);
+                var dependencyGroups = nuspecReader.GetDependencyGroups();
+
+                foreach (var group in dependencyGroups)
+                {
+                    var tfm = group.TargetFramework.GetShortFolderName();
+                    
+                    foreach (var package in group.Packages)
+                    {
+                        dependencies.Add(new DirectDependency
+                        {
+                            TargetFramework = tfm,
+                            PackageId = package.Id,
+                            VersionRange = package.VersionRange?.ToString() ?? "*"
+                        });
+                    }
+                }
+            }
+            else
+            {
+                var packageFolder = Path.GetDirectoryName(nupkgPath);
+                if (packageFolder != null && Directory.Exists(packageFolder))
+                {
+                    using var packageReader = new PackageFolderReader(packageFolder);
+                    var nuspecReader = await packageReader.GetNuspecReaderAsync(cancellationToken);
+                    var dependencyGroups = nuspecReader.GetDependencyGroups();
+
+                    foreach (var group in dependencyGroups)
+                    {
+                        var tfm = group.TargetFramework.GetShortFolderName();
+                        
+                        foreach (var package in group.Packages)
+                        {
+                            dependencies.Add(new DirectDependency
+                            {
+                                TargetFramework = tfm,
+                                PackageId = package.Id,
+                                VersionRange = package.VersionRange?.ToString() ?? "*"
+                            });
+                        }
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Package not found at {Path} for dependency reading", nupkgPath);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read dependencies from {Path}", nupkgPath);
+        }
+
+        return dependencies;
+    }
+
     private class NuGetLogger : NuGet.Common.ILogger
     {
         private readonly Microsoft.Extensions.Logging.ILogger<NuGetPackageResolver> _logger;
