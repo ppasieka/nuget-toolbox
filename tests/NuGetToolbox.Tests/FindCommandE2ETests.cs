@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
 using NuGetToolbox.Cli.Models;
-using Xunit;
 
 namespace NuGetToolbox.Tests;
 
@@ -32,7 +31,7 @@ public class FindCommandE2ETests
         // Assert
         Assert.Equal(0, process.ExitCode);
         Assert.NotEmpty(output);
-        
+
         var packageInfo = JsonSerializer.Deserialize<PackageInfo>(output);
         Assert.NotNull(packageInfo);
         Assert.Equal("Newtonsoft.Json", packageInfo.PackageId);

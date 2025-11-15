@@ -1,7 +1,5 @@
 using System.CommandLine;
-using System.CommandLine.Invocation;
 using System.Reflection;
-using System.Text.Json;
 
 namespace NuGetToolbox.Cli.Commands;
 
@@ -95,11 +93,11 @@ public static class SchemaCommand
 
             foreach (var (commandName, _) in SchemaResourceNames)
             {
-                var fileName = commandName == "models" 
-                    ? "models-1.0.schema.json" 
+                var fileName = commandName == "models"
+                    ? "models-1.0.schema.json"
                     : $"{commandName}.schema.json";
                 var filePath = Path.Combine(outputPath, fileName);
-                
+
                 var schema = LoadSchemaResource(commandName);
                 if (schema == null)
                 {
@@ -173,7 +171,7 @@ public static class SchemaCommand
 
         var assembly = Assembly.GetExecutingAssembly();
         using var stream = assembly.GetManifestResourceStream(resourceName);
-        
+
         if (stream == null)
         {
             return null;

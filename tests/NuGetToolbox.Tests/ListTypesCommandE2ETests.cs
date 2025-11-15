@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
 using NuGetToolbox.Cli.Models;
-using Xunit;
 
 namespace NuGetToolbox.Tests;
 
@@ -31,7 +30,7 @@ public class ListTypesCommandE2ETests
         // Assert
         Assert.Equal(0, process.ExitCode);
         Assert.NotEmpty(output);
-        
+
         var types = JsonSerializer.Deserialize<List<TypeInfo>>(output);
         Assert.NotNull(types);
         Assert.True(types.Count >= 50, $"Expected at least 50 types, got {types.Count}");

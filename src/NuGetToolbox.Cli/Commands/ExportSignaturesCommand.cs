@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.CommandLine.Invocation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
@@ -199,7 +198,7 @@ public static class ExportSignaturesCommand
     private static IServiceProvider CreateDefaultServiceProvider()
     {
         var services = new ServiceCollection();
-        services.AddLogging(builder => 
+        services.AddLogging(builder =>
         {
             var logDir = Path.Combine(Path.GetTempPath(), "nuget-toolbox", "logs");
             Directory.CreateDirectory(logDir);

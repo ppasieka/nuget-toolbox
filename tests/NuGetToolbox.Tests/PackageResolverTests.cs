@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NuGetToolbox.Cli.Services;
@@ -31,7 +30,7 @@ public class PackageResolverTests
   </metadata>
 </package>";
         File.WriteAllText(Path.Combine(packageFolder, "testpackage.nuspec"), nuspecContent);
-        
+
         // Create a dummy assembly
         File.WriteAllText(Path.Combine(libFolder, "TestPackage.dll"), "dummy");
 
@@ -47,7 +46,7 @@ public class PackageResolverTests
             var method = typeof(NuGetPackageResolver).GetMethod(
                 "GetTargetFrameworksAsync",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            
+
             var result = await (Task<List<string>>)method!.Invoke(
                 resolver,
                 new object[] { nupkgPath, CancellationToken.None })!;
@@ -112,7 +111,7 @@ public class PackageResolverTests
             var method = typeof(NuGetPackageResolver).GetMethod(
                 "GetTargetFrameworksAsync",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            
+
             var result = await (Task<List<string>>)method!.Invoke(
                 resolver,
                 new object[] { nupkgPath, CancellationToken.None })!;
@@ -189,7 +188,7 @@ public class PackageResolverTests
             Assert.NotNull(dependencies);
             Assert.NotEmpty(dependencies);
             Assert.Equal(3, dependencies.Count);
-            
+
             var net8Deps = dependencies.Where(d => d.TargetFramework == "net8.0").ToList();
             Assert.Equal(2, net8Deps.Count);
             Assert.Contains(net8Deps, d => d.PackageId == "Newtonsoft.Json");

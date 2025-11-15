@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
-using NuGetToolbox.Cli.Models;
 
 namespace NuGetToolbox.Cli.Services;
 
@@ -35,7 +34,7 @@ public class AssemblyInspector
         var resolver = new PathAssemblyResolver(paths);
 
         using var metadataContext = new MetadataLoadContext(resolver);
-        
+
         try
         {
             var assembly = metadataContext.LoadFromAssemblyPath(assemblyPath);
@@ -49,12 +48,12 @@ public class AssemblyInspector
             catch (ReflectionTypeLoadException ex)
             {
                 _logger.LogDebug("ReflectionTypeLoadException encountered. Using partially-loaded types from {AssemblyPath}", assemblyPath);
-                
+
                 foreach (var loaderException in ex.LoaderExceptions.Where(e => e != null).Distinct())
                 {
                     _logger.LogDebug("Loader exception: {ExceptionMessage}", loaderException!.Message);
                 }
-                
+
                 assemblyTypes = ex.Types.Where(t => t != null).ToArray()!;
             }
 

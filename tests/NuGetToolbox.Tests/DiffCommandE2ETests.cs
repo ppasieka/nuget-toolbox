@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
 using NuGetToolbox.Cli.Models;
-using Xunit;
 
 namespace NuGetToolbox.Tests;
 
@@ -31,7 +30,7 @@ public class DiffCommandE2ETests
         // Assert
         Assert.Equal(0, process.ExitCode);
         Assert.NotEmpty(output);
-        
+
         var diffResult = JsonSerializer.Deserialize<DiffResult>(output);
         Assert.NotNull(diffResult);
         Assert.Equal("Newtonsoft.Json", diffResult.PackageId);
@@ -67,7 +66,7 @@ public class DiffCommandE2ETests
         Assert.Contains("\"tfm\"", output);
         Assert.Contains("\"added\"", output);
         Assert.Contains("\"compatible\"", output);
-        
+
         var diffResult = JsonSerializer.Deserialize<DiffResult>(output);
         Assert.NotNull(diffResult);
         Assert.IsType<bool>(diffResult.Compatible);

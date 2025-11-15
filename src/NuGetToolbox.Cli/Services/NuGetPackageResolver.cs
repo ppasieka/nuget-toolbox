@@ -290,7 +290,7 @@ public class NuGetPackageResolver
                 foreach (var group in dependencyGroups)
                 {
                     var tfm = group.TargetFramework.GetShortFolderName();
-                    
+
                     foreach (var package in group.Packages)
                     {
                         dependencies.Add(new DirectDependency
@@ -314,7 +314,7 @@ public class NuGetPackageResolver
                     foreach (var group in dependencyGroups)
                     {
                         var tfm = group.TargetFramework.GetShortFolderName();
-                        
+
                         foreach (var package in group.Packages)
                         {
                             dependencies.Add(new DirectDependency

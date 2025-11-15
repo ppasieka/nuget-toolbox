@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
 using NuGetToolbox.Cli.Models;
-using Xunit;
 
 namespace NuGetToolbox.Tests;
 
@@ -31,7 +30,7 @@ public class ExportSignaturesCommandE2ETests
         // Assert
         Assert.Equal(0, process.ExitCode);
         Assert.NotEmpty(output);
-        
+
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         Assert.NotEmpty(lines);
     }
@@ -94,7 +93,7 @@ public class ExportSignaturesCommandE2ETests
         var methods = lines.Select(l => JsonSerializer.Deserialize<MethodInfo>(l)).ToList();
         var methodsWithSummary = methods.Count(m => !string.IsNullOrEmpty(m?.Summary));
         var percentage = (double)methodsWithSummary / methods.Count * 100;
-        
+
         Assert.True(percentage >= 50, $"Expected at least 50% of methods to have summaries, got {percentage:F1}%");
     }
 }

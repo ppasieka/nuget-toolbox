@@ -76,7 +76,7 @@ public class AssemblyInspectorTests
 
             // Assert - should succeed even if some dependencies are missing
             Assert.NotNull(types);
-            
+
             // Verify Debug logging was called if there were any loader exceptions
             mockLogger.Verify(
                 x => x.Log(
@@ -137,12 +137,12 @@ public class AssemblyInspectorTests
         var assemblyName = new AssemblyName(Path.GetFileNameWithoutExtension(path));
         var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
         var moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName.Name!);
-        
+
         // Create a simple public class
         var typeBuilder = moduleBuilder.DefineType(
             "TestClass",
             TypeAttributes.Public | TypeAttributes.Class);
-        
+
         typeBuilder.CreateType();
 
         // Save the assembly using reflection

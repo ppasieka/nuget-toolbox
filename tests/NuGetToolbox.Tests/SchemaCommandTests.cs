@@ -1,5 +1,4 @@
 using System.Reflection;
-using Xunit;
 
 namespace NuGetToolbox.Tests;
 
@@ -40,14 +39,13 @@ public class SchemaCommandTests
         // Act
         using var stream = assembly.GetManifestResourceStream(resourceName);
         Assert.NotNull(stream);
-        
+
         using var reader = new StreamReader(stream);
         var json = reader.ReadToEnd();
 
         // Assert - should not throw
         var doc = System.Text.Json.JsonDocument.Parse(json);
         Assert.NotNull(doc);
-        Assert.NotNull(doc.RootElement);
     }
 
     [Fact]
@@ -60,7 +58,7 @@ public class SchemaCommandTests
         // Act
         using var stream = assembly.GetManifestResourceStream(resourceName);
         Assert.NotNull(stream);
-        
+
         using var reader = new StreamReader(stream);
         var json = reader.ReadToEnd();
         var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -68,13 +66,13 @@ public class SchemaCommandTests
         // Assert
         Assert.True(doc.RootElement.TryGetProperty("$schema", out var schema));
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", schema.GetString());
-        
+
         Assert.True(doc.RootElement.TryGetProperty("$id", out var id));
         Assert.Contains("models-1.0.schema.json", id.GetString());
-        
+
         Assert.True(doc.RootElement.TryGetProperty("title", out var title));
         Assert.False(string.IsNullOrWhiteSpace(title.GetString()));
-        
+
         Assert.True(doc.RootElement.TryGetProperty("description", out var description));
         Assert.False(string.IsNullOrWhiteSpace(description.GetString()));
     }
@@ -96,7 +94,7 @@ public class SchemaCommandTests
         // Act
         using var stream = assembly.GetManifestResourceStream(resourceName);
         Assert.NotNull(stream);
-        
+
         using var reader = new StreamReader(stream);
         var json = reader.ReadToEnd();
         var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -104,7 +102,7 @@ public class SchemaCommandTests
         // Assert
         Assert.True(doc.RootElement.TryGetProperty("$defs", out var defs));
         Assert.True(defs.TryGetProperty(defName, out var def));
-        
+
         // Verify each definition has required fields
         Assert.True(def.TryGetProperty("type", out _));
         Assert.True(def.TryGetProperty("properties", out var properties));
@@ -125,7 +123,7 @@ public class SchemaCommandTests
         // Act
         using var stream = assembly.GetManifestResourceStream(resourceName);
         Assert.NotNull(stream);
-        
+
         using var reader = new StreamReader(stream);
         var json = reader.ReadToEnd();
         var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -133,10 +131,10 @@ public class SchemaCommandTests
         // Assert
         Assert.True(doc.RootElement.TryGetProperty("$schema", out var schema));
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", schema.GetString());
-        
+
         Assert.True(doc.RootElement.TryGetProperty("title", out var title));
         Assert.False(string.IsNullOrWhiteSpace(title.GetString()));
-        
+
         Assert.True(doc.RootElement.TryGetProperty("description", out var description));
         Assert.False(string.IsNullOrWhiteSpace(description.GetString()));
     }
@@ -151,7 +149,7 @@ public class SchemaCommandTests
         // Act
         using var stream = assembly.GetManifestResourceStream(resourceName);
         Assert.NotNull(stream);
-        
+
         using var reader = new StreamReader(stream);
         var json = reader.ReadToEnd();
         var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -163,9 +161,9 @@ public class SchemaCommandTests
 
         foreach (var prop in properties.EnumerateObject())
         {
-            Assert.True(prop.Value.TryGetProperty("description", out var description), 
+            Assert.True(prop.Value.TryGetProperty("description", out var description),
                 $"Property '{prop.Name}' missing description");
-            Assert.False(string.IsNullOrWhiteSpace(description.GetString()), 
+            Assert.False(string.IsNullOrWhiteSpace(description.GetString()),
                 $"Property '{prop.Name}' has empty description");
         }
     }
@@ -180,7 +178,7 @@ public class SchemaCommandTests
         // Act
         using var stream = assembly.GetManifestResourceStream(resourceName);
         Assert.NotNull(stream);
-        
+
         using var reader = new StreamReader(stream);
         var json = reader.ReadToEnd();
         var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -192,9 +190,9 @@ public class SchemaCommandTests
 
         foreach (var prop in properties.EnumerateObject())
         {
-            Assert.True(prop.Value.TryGetProperty("description", out var description), 
+            Assert.True(prop.Value.TryGetProperty("description", out var description),
                 $"Property '{prop.Name}' missing description");
-            Assert.False(string.IsNullOrWhiteSpace(description.GetString()), 
+            Assert.False(string.IsNullOrWhiteSpace(description.GetString()),
                 $"Property '{prop.Name}' has empty description");
         }
     }

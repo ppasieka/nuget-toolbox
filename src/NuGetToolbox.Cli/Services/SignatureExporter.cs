@@ -1,10 +1,8 @@
 using System.Reflection;
-using System.Reflection.Metadata;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.Logging;
-using NuGetToolbox.Cli.Models;
 
 namespace NuGetToolbox.Cli.Services;
 
@@ -58,7 +56,7 @@ public class SignatureExporter
             {
                 var assembly = mlc.LoadFromAssemblyPath(assemblyPath);
                 var xmlPath = Path.ChangeExtension(assemblyPath, ".xml");
-                
+
                 if (File.Exists(xmlPath))
                 {
                     _xmlDocProvider.LoadDocumentation(xmlPath);
@@ -69,7 +67,7 @@ public class SignatureExporter
 
                 if (namespaceFilter != null)
                 {
-                    publicTypes = publicTypes.Where(t => 
+                    publicTypes = publicTypes.Where(t =>
                         t.Namespace != null && t.Namespace.StartsWith(namespaceFilter, StringComparison.Ordinal));
                 }
 
@@ -256,10 +254,10 @@ public class SignatureExporter
             var genericTypeName = genericTypeDef.FullName?.Replace('+', '.') ?? genericTypeDef.Name;
             var args = type.GetGenericArguments();
             var argStrings = string.Join(", ", args.Select(GetFullTypeName));
-            
+
             if (genericTypeName.Contains('`'))
                 genericTypeName = genericTypeName.Substring(0, genericTypeName.IndexOf('`'));
-            
+
             return $"{genericTypeName}<{argStrings}>";
         }
 

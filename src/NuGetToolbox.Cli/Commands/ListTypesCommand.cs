@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.CommandLine.Invocation;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -173,7 +172,7 @@ public static class ListTypesCommand
     private static IServiceProvider CreateDefaultServiceProvider()
     {
         var services = new ServiceCollection();
-        services.AddLogging(builder => 
+        services.AddLogging(builder =>
         {
             var logDir = Path.Combine(Path.GetTempPath(), "nuget-toolbox", "logs");
             Directory.CreateDirectory(logDir);
