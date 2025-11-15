@@ -25,7 +25,7 @@ A **CLI tool** for analyzing public APIs in NuGet packages without executing cod
 ### Installation
 
 ```bash
-git clone https://github.com/ampcode/nuget-toolbox.git
+git clone https://github.com/ppasieka/nuget-toolbox.git
 cd nuget-toolbox
 dotnet build
 ```
@@ -600,9 +600,8 @@ A: The tool gracefully handles missing dependencies by extracting partial result
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/ampcode/nuget-toolbox/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/ampcode/nuget-toolbox/discussions)
-- **Email**: support@ampcode.com
+- **Issues**: [GitHub Issues](https://github.com/ppasieka/nuget-toolbox/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ppasieka/nuget-toolbox/discussions)
 
 ---
 
