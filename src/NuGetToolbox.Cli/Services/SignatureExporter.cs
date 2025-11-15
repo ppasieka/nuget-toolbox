@@ -62,17 +62,31 @@ public class SignatureExporter
                     _xmlDocProvider.LoadDocumentation(xmlPath);
                 }
 
-                var publicTypes = assembly.GetTypes()
-                    .Where(t => t.IsPublic || t.IsNestedPublic);
+                Type[] types;
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    types = ex.Types.Where(t => t != null).ToArray()!;
+                    _logger.LogWarning("Partial type load in {Assembly}: {LoadedCount}/{TotalCount} types loaded", 
+                        assemblyPath, types.Length, ex.Types.Length);
+                }
+
+                var visibleTypes = types
+                    .Where(t => t.IsVisible && (t.IsClass || t.IsInterface));
 
                 if (namespaceFilter != null)
                 {
-                    publicTypes = publicTypes.Where(t =>
+                    visibleTypes = visibleTypes.Where(t =>
                         t.Namespace != null && t.Namespace.StartsWith(namespaceFilter, StringComparison.Ordinal));
                 }
 
-                foreach (var type in publicTypes)
+                foreach (var type in visibleTypes)
                 {
+                    // Use DeclaredOnly to include only methods directly declared on this type
+                    // This excludes inherited interface methods for consistency and performance
                     var publicMethods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
                         .Where(m => !m.IsSpecialName);
 
@@ -123,7 +137,7 @@ public class SignatureExporter
         return string.Join('\n', lines);
     }
 
-    private Models.MethodInfo CreateMethodInfo(System.Reflection.MethodInfo method, Type declaringType)
+    private Models.MethodInfo CreateMethodInfo(MethodInfo method, Type declaringType)
     {
         var signature = BuildSignature(method);
         var docId = GetDocumentationCommentId(method);
@@ -149,7 +163,7 @@ public class SignatureExporter
         return methodInfo;
     }
 
-    private static string BuildSignature(System.Reflection.MethodInfo method)
+    private static string BuildSignature(MethodInfo method)
     {
         var returnType = method.ReturnType.IsGenericType
             ? FormatGenericType(method.ReturnType)
@@ -189,7 +203,7 @@ public class SignatureExporter
         return $"{genericTypeName}<{genericArgs}>";
     }
 
-    private static string GetDocumentationCommentId(System.Reflection.MethodInfo method)
+    private static string GetDocumentationCommentId(MethodInfo method)
     {
         var declaringType = method.DeclaringType;
         var typeFullName = declaringType?.FullName?.Replace('+', '.');
@@ -203,7 +217,13 @@ public class SignatureExporter
             ? $"``{method.GetGenericArguments().Length}"
             : string.Empty;
 
-        return $"M:{typeFullName}.{method.Name}{genericSuffix}{paramList}";
+        var methodName = method.Name;
+        if (method.IsConstructor)
+        {
+            methodName = method.IsStatic ? "#cctor" : "#ctor";
+        }
+
+        return $"M:{typeFullName}.{methodName}{genericSuffix}{paramList}";
     }
 
     private static string GetParameterTypeString(Type type)

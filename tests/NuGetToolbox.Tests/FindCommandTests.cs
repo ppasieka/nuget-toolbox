@@ -1,7 +1,6 @@
 using NuGetToolbox.Cli.Commands;
 using NuGetToolbox.Cli.Models;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace NuGetToolbox.Tests;
 
@@ -22,7 +21,7 @@ public class FindCommandTests
     public void Create_WithServiceProvider_ReturnsCommand()
     {
         // Arrange
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        var services = new ServiceCollection();
         var serviceProvider = services.BuildServiceProvider();
 
         // Act

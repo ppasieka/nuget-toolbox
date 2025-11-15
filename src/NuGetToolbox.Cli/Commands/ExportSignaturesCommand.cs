@@ -13,13 +13,13 @@ public static class ExportSignaturesCommand
 {
     public static Command Create(IServiceProvider? serviceProvider = null)
     {
-        var packageOption = new Option<string>("--package", "-p")
+        var packageOption = new Option<string>("--package", new[] { "-p" })
         {
             Description = "Package ID",
             Required = true
         };
 
-        var versionOption = new Option<string?>("--version", "-v")
+        var versionOption = new Option<string?>("--version", new[] { "-v" })
         {
             Description = "Package version (if omitted, uses latest)"
         };
@@ -35,12 +35,12 @@ public static class ExportSignaturesCommand
             DefaultValueFactory = _ => "json"
         };
 
-        var filterOption = new Option<string?>("--filter")
+        var filterOption = new Option<string?>("--filter", new[] { "--namespace" })
         {
             Description = "Namespace filter (e.g., Newtonsoft.Json.Linq)"
         };
 
-        var outputOption = new Option<string?>("--output", "-o")
+        var outputOption = new Option<string?>("--output", new[] { "-o" })
         {
             Description = "Output file path (default: stdout)"
         };

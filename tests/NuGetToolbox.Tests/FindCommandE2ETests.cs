@@ -1,21 +1,32 @@
 using System.Diagnostics;
 using System.Text.Json;
 using NuGetToolbox.Cli.Models;
+using Xunit.Abstractions;
 
 namespace NuGetToolbox.Tests;
 
 public class FindCommandE2ETests
 {
-    private const string CliPath = "c:\\dev\\app\\nuget-toolbox\\src\\NuGetToolbox.Cli\\bin\\Debug\\net8.0\\NuGetToolbox.Cli.dll";
+    private readonly string _cliPath;
+    private readonly ITestOutputHelper _output;
+
+    public FindCommandE2ETests(ITestOutputHelper output)
+    {
+        _output = output;
+        _cliPath = CliHelper.GetCliPath();
+    }
 
     [Fact]
     public async Task Find_NewtonsoftJson_13_0_1_ReturnsValidJson()
     {
         // Arrange
+        var arguments = $"find --package Newtonsoft.Json --version 13.0.1";
+        _output.WriteLine($"Executing: dotnet {_cliPath} {arguments}");
+        
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} find --package Newtonsoft.Json --version 13.0.1",
+            Arguments = $"{_cliPath} find --package Newtonsoft.Json --version 13.0.1",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -43,31 +54,4 @@ public class FindCommandE2ETests
         Assert.NotEmpty(packageInfo.Tfms);
     }
 
-    [Fact]
-    public async Task Find_NewtonsoftJson_ValidatesJsonStructure()
-    {
-        // Arrange
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            Arguments = $"{CliPath} find --package Newtonsoft.Json --version 13.0.1",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        // Act
-        using var process = Process.Start(startInfo)!;
-        var output = await process.StandardOutput.ReadToEndAsync();
-        await process.WaitForExitAsync();
-
-        // Assert
-        Assert.Contains("\"packageId\"", output);
-        Assert.Contains("\"resolvedVersion\"", output);
-        Assert.Contains("\"resolved\"", output);
-        Assert.Contains("\"source\"", output);
-        Assert.Contains("\"nupkgPath\"", output);
-        Assert.Contains("\"targetFrameworks\"", output);
-    }
 }

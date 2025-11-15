@@ -1,21 +1,32 @@
 using System.Diagnostics;
 using System.Text.Json;
 using NuGetToolbox.Cli.Models;
+using Xunit.Abstractions;
 
 namespace NuGetToolbox.Tests;
 
 public class ListTypesCommandE2ETests
 {
-    private const string CliPath = "c:\\dev\\app\\nuget-toolbox\\src\\NuGetToolbox.Cli\\bin\\Debug\\net8.0\\NuGetToolbox.Cli.dll";
+    private readonly string _cliPath;
+    private readonly ITestOutputHelper _output;
+
+    public ListTypesCommandE2ETests(ITestOutputHelper output)
+    {
+        _output = output;
+        _cliPath = CliHelper.GetCliPath();
+    }
 
     [Fact]
     public async Task ListTypes_NewtonsoftJson_13_0_1_ReturnsAtLeast50Types()
     {
         // Arrange
+        var arguments = $"list-types --package Newtonsoft.Json --version 13.0.1";
+        _output.WriteLine($"Executing: dotnet {_cliPath} {arguments}");
+        
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} list-types --package Newtonsoft.Json --version 13.0.1",
+            Arguments = $"{_cliPath} list-types --package Newtonsoft.Json --version 13.0.1",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -43,7 +54,7 @@ public class ListTypesCommandE2ETests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} list-types --package Newtonsoft.Json --version 13.0.1",
+            Arguments = $"{_cliPath} list-types --package Newtonsoft.Json --version 13.0.1",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -76,7 +87,7 @@ public class ListTypesCommandE2ETests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} list-types --package Newtonsoft.Json --version 13.0.1",
+            Arguments = $"{_cliPath} list-types --package Newtonsoft.Json --version 13.0.1",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

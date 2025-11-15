@@ -1,7 +1,10 @@
 ---
+agent: build
 description: Archive a deployed OpenSpec change and update specs.
-auto_execution_mode: 3
 ---
+<ChangeId>
+  $ARGUMENTS
+</ChangeId>
 <!-- OPENSPEC:START -->
 **Guardrails**
 - Favor straightforward, minimal implementations first and add complexity only when it is requested or clearly required.

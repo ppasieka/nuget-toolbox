@@ -1,21 +1,32 @@
 using System.Diagnostics;
 using System.Text.Json;
 using NuGetToolbox.Cli.Models;
+using Xunit.Abstractions;
 
 namespace NuGetToolbox.Tests;
 
 public class DiffCommandE2ETests
 {
-    private const string CliPath = "c:\\dev\\app\\nuget-toolbox\\src\\NuGetToolbox.Cli\\bin\\Debug\\net8.0\\NuGetToolbox.Cli.dll";
+    private readonly string _cliPath;
+    private readonly ITestOutputHelper _output;
+
+    public DiffCommandE2ETests(ITestOutputHelper output)
+    {
+        _output = output;
+        _cliPath = CliHelper.GetCliPath();
+    }
 
     [Fact]
     public async Task Diff_NewtonsoftJson_Versions_ReturnsValidJson()
     {
         // Arrange
+        var arguments = $"diff --package Newtonsoft.Json --from 13.0.1 --to 13.0.3";
+        _output.WriteLine($"Executing: dotnet {_cliPath} {arguments}");
+        
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} diff --package Newtonsoft.Json --from 13.0.1 --to 13.0.3",
+            Arguments = $"{_cliPath} diff --package Newtonsoft.Json --from 13.0.1 --to 13.0.3",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -47,7 +58,7 @@ public class DiffCommandE2ETests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} diff --package Newtonsoft.Json --from 13.0.1 --to 13.0.3",
+            Arguments = $"{_cliPath} diff --package Newtonsoft.Json --from 13.0.1 --to 13.0.3",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -79,7 +90,7 @@ public class DiffCommandE2ETests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} diff --package Newtonsoft.Json --from 13.0.1 --to 13.0.1",
+            Arguments = $"{_cliPath} diff --package Newtonsoft.Json --from 13.0.1 --to 13.0.1",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

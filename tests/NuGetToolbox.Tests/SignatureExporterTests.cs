@@ -1,12 +1,20 @@
 using System.Diagnostics;
 using System.Text.Json;
-using NuGetToolbox.Cli.Models;
+using Xunit.Abstractions;
+using MethodInfo = NuGetToolbox.Cli.Models.MethodInfo;
 
 namespace NuGetToolbox.Tests;
 
-public class SignatureExporterTests
+public partial class SignatureExporterTests
 {
-    private const string CliPath = "c:\\dev\\app\\nuget-toolbox\\src\\NuGetToolbox.Cli\\bin\\Debug\\net8.0\\NuGetToolbox.Cli.dll";
+    private readonly string _cliPath;
+    private readonly ITestOutputHelper _output;
+
+    public SignatureExporterTests(ITestOutputHelper output)
+    {
+        _output = output;
+        _cliPath = CliHelper.GetCliPath();
+    }
 
     [Fact]
     public async Task ExportSignatures_NewtonsoftJson_ExtractsMethodSignaturesWithParameters()
@@ -15,7 +23,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -30,7 +38,7 @@ public class SignatureExporterTests
         // Assert
         Assert.Equal(0, process.ExitCode);
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var signatures = lines.Select(l => JsonSerializer.Deserialize<MethodInfo>(l)).ToList();
+        var signatures = lines.Select(l => JsonSerializer.Deserialize<NuGetToolbox.Cli.Models.MethodInfo>(l)).ToList();
 
         // Find a method with parameters - JsonConvert.SerializeObject
         var serializeMethod = signatures.FirstOrDefault(s =>
@@ -58,7 +66,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -72,7 +80,7 @@ public class SignatureExporterTests
 
         // Assert
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var signatures = lines.Select(l => JsonSerializer.Deserialize<MethodInfo>(l)).ToList();
+        var signatures = lines.Select(l => JsonSerializer.Deserialize<NuGetToolbox.Cli.Models.MethodInfo>(l)).ToList();
         var methodsWithReturnDocs = signatures.Where(s => !string.IsNullOrEmpty(s?.Returns)).ToList();
 
         Assert.NotEmpty(methodsWithReturnDocs);
@@ -89,7 +97,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -103,7 +111,7 @@ public class SignatureExporterTests
 
         // Assert
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var signatures = lines.Select(l => JsonSerializer.Deserialize<MethodInfo>(l)).ToList();
+        var signatures = lines.Select(l => JsonSerializer.Deserialize<NuGetToolbox.Cli.Models.MethodInfo>(l)).ToList();
         var methodsWithSummary = signatures.Where(s => !string.IsNullOrEmpty(s?.Summary)).ToList();
 
         Assert.NotEmpty(methodsWithSummary);
@@ -121,7 +129,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -135,7 +143,7 @@ public class SignatureExporterTests
 
         // Assert
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var signatures = lines.Select(l => JsonSerializer.Deserialize<MethodInfo>(l)).ToList();
+        var signatures = lines.Select(l => JsonSerializer.Deserialize<NuGetToolbox.Cli.Models.MethodInfo>(l)).ToList();
         var methodsWithParamDocs = signatures.Where(s => s?.Params != null && s.Params.Count > 0).ToList();
 
         Assert.NotEmpty(methodsWithParamDocs);
@@ -163,7 +171,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -177,7 +185,7 @@ public class SignatureExporterTests
 
         // Assert - pick a well-known method and validate all its components
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var signatures = lines.Select(l => JsonSerializer.Deserialize<MethodInfo>(l)).ToList();
+        var signatures = lines.Select(l => JsonSerializer.Deserialize<NuGetToolbox.Cli.Models.MethodInfo>(l)).ToList();
 
         var toStringMethod = signatures.FirstOrDefault(s =>
             s?.Type == "Newtonsoft.Json.JsonConvert" &&
@@ -211,7 +219,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -251,7 +259,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -294,7 +302,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -331,7 +339,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -374,7 +382,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json.Linq --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json.Linq --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -417,7 +425,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json.Linq --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json.Linq --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -463,7 +471,7 @@ public class SignatureExporterTests
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{CliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
+            Arguments = $"{_cliPath} export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

@@ -342,9 +342,9 @@ public class NuGetPackageResolver
 
     private class NuGetLogger : NuGet.Common.ILogger
     {
-        private readonly Microsoft.Extensions.Logging.ILogger<NuGetPackageResolver> _logger;
+        private readonly ILogger<NuGetPackageResolver> _logger;
 
-        public NuGetLogger(Microsoft.Extensions.Logging.ILogger<NuGetPackageResolver> logger)
+        public NuGetLogger(ILogger<NuGetPackageResolver> logger)
         {
             _logger = logger;
         }
