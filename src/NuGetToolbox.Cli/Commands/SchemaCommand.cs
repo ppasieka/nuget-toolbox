@@ -19,7 +19,7 @@ public static class SchemaCommand
         { "models", "NuGetToolbox.Cli.Schemas.models-1.0.schema.json" }
     };
 
-    public static Command Create()
+    public static Command Create(IServiceProvider _)
     {
         var commandOption = new Option<string?>("--command", "-c")
         {

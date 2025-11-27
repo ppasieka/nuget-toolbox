@@ -1,14 +1,21 @@
+using Microsoft.Extensions.DependencyInjection;
 using NuGetToolbox.Cli.Commands;
 
 namespace NuGetToolbox.Tests;
 
 public class ExportSignaturesCommandTests
 {
+    private static IServiceProvider CreateTestServiceProvider()
+    {
+        var services = new ServiceCollection();
+        return services.BuildServiceProvider();
+    }
+
     [Fact]
     public void Create_CommandHasFilterOptionWithNamespaceAlias()
     {
         // Arrange & Act
-        var command = ExportSignaturesCommand.Create();
+        var command = ExportSignaturesCommand.Create(CreateTestServiceProvider());
 
         // Assert
         Assert.NotNull(command);
@@ -25,7 +32,7 @@ public class ExportSignaturesCommandTests
     public void Create_CommandHasAllExpectedOptions()
     {
         // Arrange & Act
-        var command = ExportSignaturesCommand.Create();
+        var command = ExportSignaturesCommand.Create(CreateTestServiceProvider());
 
         // Assert
         Assert.NotNull(command);
@@ -54,7 +61,7 @@ public class ExportSignaturesCommandTests
     public void Create_CommandHasCorrectDescription()
     {
         // Arrange & Act
-        var command = ExportSignaturesCommand.Create();
+        var command = ExportSignaturesCommand.Create(CreateTestServiceProvider());
 
         // Assert
         Assert.Equal("Export public method signatures with XML documentation", command.Description);

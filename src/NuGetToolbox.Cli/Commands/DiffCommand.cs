@@ -14,7 +14,7 @@ namespace NuGetToolbox.Cli.Commands;
 /// </summary>
 public static class DiffCommand
 {
-    public static Command Create(IServiceProvider? serviceProvider = null)
+    public static Command Create(IServiceProvider serviceProvider)
     {
         var packageOption = new Option<string>(["--package", "-p"])
         {
@@ -74,13 +74,11 @@ public static class DiffCommand
         string toVersion,
         string? tfm,
         string? output,
-        IServiceProvider? serviceProvider,
+        IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
     {
         try
         {
-            serviceProvider ??= CreateDefaultServiceProvider();
-
             var resolver = serviceProvider.GetRequiredService<NuGetPackageResolver>();
             var exporter = serviceProvider.GetRequiredService<SignatureExporter>();
             var analyzer = serviceProvider.GetRequiredService<ApiDiffAnalyzer>();
@@ -199,23 +197,5 @@ public static class DiffCommand
         logger.LogInformation("Extracted {Count} assemblies from {Tfm}", assemblies.Count, targetGroup.TargetFramework.GetShortFolderName());
 
         return assemblies;
-    }
-
-    private static IServiceProvider CreateDefaultServiceProvider()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging(builder =>
-        {
-            var logDir = Path.Combine(Path.GetTempPath(), "nuget-toolbox", "logs");
-            Directory.CreateDirectory(logDir);
-            var logFile = Path.Combine(logDir, $"nuget-toolbox-{DateTime.UtcNow:yyyyMMdd}.log");
-            builder.AddFile(logFile, minimumLevel: LogLevel.Debug);
-        });
-        services.AddScoped<NuGetPackageResolver>();
-        services.AddScoped<AssemblyInspector>();
-        services.AddScoped<XmlDocumentationProvider>();
-        services.AddScoped<SignatureExporter>();
-        services.AddScoped<ApiDiffAnalyzer>();
-        return services.BuildServiceProvider();
     }
 }

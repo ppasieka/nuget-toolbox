@@ -13,7 +13,7 @@ namespace NuGetToolbox.Cli.Commands;
 /// </summary>
 public static class FindCommand
 {
-    public static Command Create(IServiceProvider? serviceProvider = null)
+    public static Command Create(IServiceProvider serviceProvider)
     {
         var packageOption = new Option<string>(["--package", "-p"])
         {
@@ -62,14 +62,11 @@ public static class FindCommand
         string? version,
         string? feed,
         string? output,
-        IServiceProvider? serviceProvider,
+        IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
     {
         try
         {
-            // Use default service provider if not provided
-            serviceProvider ??= CreateDefaultServiceProvider();
-
             var resolver = serviceProvider.GetRequiredService<NuGetPackageResolver>();
             var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
             var logger = loggerFactory.CreateLogger("FindCommand");
@@ -110,25 +107,11 @@ public static class FindCommand
         }
         catch (Exception ex)
         {
-            var loggerFactory = serviceProvider?.GetService<ILoggerFactory>();
+            var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
             var logger = loggerFactory?.CreateLogger("FindCommand");
             logger?.LogError(ex, "Failed to resolve package {PackageId}", packageId);
             Console.Error.WriteLine($"Error: {ex.Message}");
             return ExitCodes.Error;
         }
-    }
-
-    private static IServiceProvider CreateDefaultServiceProvider()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging(builder =>
-        {
-            var logDir = Path.Combine(Path.GetTempPath(), "nuget-toolbox", "logs");
-            Directory.CreateDirectory(logDir);
-            var logFile = Path.Combine(logDir, $"nuget-toolbox-{DateTime.UtcNow:yyyyMMdd}.log");
-            builder.AddFile(logFile, minimumLevel: LogLevel.Debug);
-        });
-        services.AddScoped<NuGetPackageResolver>();
-        return services.BuildServiceProvider();
     }
 }

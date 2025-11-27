@@ -7,17 +7,6 @@ namespace NuGetToolbox.Tests;
 public class FindCommandTests
 {
     [Fact]
-    public void Create_ReturnsCommand()
-    {
-        // Act
-        var command = FindCommand.Create();
-
-        // Assert
-        Assert.NotNull(command);
-        Assert.Equal("find", command.Name);
-    }
-
-    [Fact]
     public void Create_WithServiceProvider_ReturnsCommand()
     {
         // Arrange
