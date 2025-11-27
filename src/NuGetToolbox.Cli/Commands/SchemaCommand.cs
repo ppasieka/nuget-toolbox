@@ -48,6 +48,7 @@ public static class SchemaCommand
             var commandName = ctx.ParseResult.GetValueForOption(commandOption);
             var all = ctx.ParseResult.GetValueForOption(allOption);
             var output = ctx.ParseResult.GetValueForOption(outputOption);
+            var cancellationToken = ctx.GetCancellationToken();
 
             try
             {
@@ -73,14 +74,14 @@ public static class SchemaCommand
 
                 if (all)
                 {
-                    ctx.ExitCode = await HandleAllSchemasAsync(output);
+                    ctx.ExitCode = await HandleAllSchemasAsync(output, cancellationToken);
                     return;
                 }
 
                 if (string.IsNullOrEmpty(commandName))
                 {
                     // Default: export models schema
-                    ctx.ExitCode = await ExportSchemaAsync("models", output);
+                    ctx.ExitCode = await ExportSchemaAsync("models", output, cancellationToken);
                     return;
                 }
 
@@ -94,7 +95,11 @@ public static class SchemaCommand
                 }
 
                 commandName = commandName.ToLowerInvariant();
-                ctx.ExitCode = await ExportSchemaAsync(commandName, output);
+                ctx.ExitCode = await ExportSchemaAsync(commandName, output, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                ctx.ExitCode = ExitCodes.Error;
             }
             catch (Exception ex)
             {
@@ -106,7 +111,7 @@ public static class SchemaCommand
         return command;
     }
 
-    private static async Task<int> HandleAllSchemasAsync(string? outputPath)
+    private static async Task<int> HandleAllSchemasAsync(string? outputPath, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrEmpty(outputPath))
         {
@@ -118,19 +123,21 @@ public static class SchemaCommand
 
             foreach (var (commandName, _) in SchemaResourceNames)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var fileName = commandName == "models"
                     ? "models-1.0.schema.json"
                     : $"{commandName}.schema.json";
                 var filePath = Path.Combine(outputPath, fileName);
 
-                var schema = await LoadSchemaResourceAsync(commandName);
+                var schema = await LoadSchemaResourceAsync(commandName, cancellationToken);
                 if (schema == null)
                 {
                     Console.Error.WriteLine($"Warning: Could not load schema for '{commandName}'");
                     continue;
                 }
 
-                await File.WriteAllTextAsync(filePath, schema);
+                await File.WriteAllTextAsync(filePath, schema, cancellationToken);
                 Console.Error.WriteLine($"Wrote {fileName}");
             }
 
@@ -141,7 +148,9 @@ public static class SchemaCommand
             // Write all schemas to stdout as separate JSON documents
             foreach (var (commandName, _) in SchemaResourceNames)
             {
-                var schema = await LoadSchemaResourceAsync(commandName);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var schema = await LoadSchemaResourceAsync(commandName, cancellationToken);
                 if (schema == null)
                 {
                     Console.Error.WriteLine($"Warning: Could not load schema for '{commandName}'");
@@ -157,9 +166,9 @@ public static class SchemaCommand
         }
     }
 
-    private static async Task<int> ExportSchemaAsync(string commandName, string? outputPath)
+    private static async Task<int> ExportSchemaAsync(string commandName, string? outputPath, CancellationToken cancellationToken)
     {
-        var schema = await LoadSchemaResourceAsync(commandName);
+        var schema = await LoadSchemaResourceAsync(commandName, cancellationToken);
         if (schema == null)
         {
             Console.Error.WriteLine($"Error: Could not load schema resource for '{commandName}'");
@@ -175,7 +184,7 @@ public static class SchemaCommand
                 Directory.CreateDirectory(directory);
             }
 
-            await File.WriteAllTextAsync(outputPath, schema);
+            await File.WriteAllTextAsync(outputPath, schema, cancellationToken);
             Console.Error.WriteLine($"Wrote schema to {outputPath}");
         }
         else
@@ -187,7 +196,7 @@ public static class SchemaCommand
         return ExitCodes.Success;
     }
 
-    private static async Task<string?> LoadSchemaResourceAsync(string commandName)
+    private static async Task<string?> LoadSchemaResourceAsync(string commandName, CancellationToken cancellationToken)
     {
         if (!SchemaResourceNames.TryGetValue(commandName, out var resourceName))
         {
@@ -203,6 +212,6 @@ public static class SchemaCommand
         }
 
         using var reader = new StreamReader(stream);
-        return await reader.ReadToEndAsync();
+        return await reader.ReadToEndAsync(cancellationToken);
     }
 }
