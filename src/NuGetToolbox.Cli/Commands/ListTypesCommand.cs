@@ -66,8 +66,7 @@ public static class ListTypesCommand
         IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
     {
-        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger("ListTypesCommand");
+        var logger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(ListTypesCommand));
         string? tempDir = null;
 
         try

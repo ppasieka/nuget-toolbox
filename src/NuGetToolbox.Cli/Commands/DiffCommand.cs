@@ -77,8 +77,7 @@ public static class DiffCommand
         IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
     {
-        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger("DiffCommand");
+        var logger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(DiffCommand));
         string? fromTempDir = null;
         string? toTempDir = null;
 

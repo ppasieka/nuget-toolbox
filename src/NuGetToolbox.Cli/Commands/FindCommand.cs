@@ -65,11 +65,11 @@ public static class FindCommand
         IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
     {
+        var logger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(FindCommand));
+        
         try
         {
             var resolver = serviceProvider.GetRequiredService<NuGetPackageResolver>();
-            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-            var logger = loggerFactory.CreateLogger("FindCommand");
 
             logger.LogInformation("Resolving package {PackageId} (version: {Version}, feed: {Feed})",
                 packageId, version ?? "latest", feed ?? "system-defined");
@@ -82,7 +82,6 @@ public static class FindCommand
                 return ExitCodes.NotFound;
             }
 
-            // Serialize to JSON with camelCase
             var options = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -92,7 +91,6 @@ public static class FindCommand
 
             var json = JsonSerializer.Serialize(packageInfo, options);
 
-            // Write to file or stdout
             if (!string.IsNullOrEmpty(output))
             {
                 await File.WriteAllTextAsync(output, json, cancellationToken);
@@ -107,9 +105,7 @@ public static class FindCommand
         }
         catch (Exception ex)
         {
-            var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
-            var logger = loggerFactory?.CreateLogger("FindCommand");
-            logger?.LogError(ex, "Failed to resolve package {PackageId}", packageId);
+            logger.LogError(ex, "Failed to resolve package {PackageId}", packageId);
             Console.Error.WriteLine($"Error: {ex.Message}");
             return ExitCodes.Error;
         }

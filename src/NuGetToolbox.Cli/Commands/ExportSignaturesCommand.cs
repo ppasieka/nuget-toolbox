@@ -91,8 +91,7 @@ public static class ExportSignaturesCommand
         IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
     {
-        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger("ExportSignaturesCommand");
+        var logger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(ExportSignaturesCommand));
         string? tempDir = null;
 
         try

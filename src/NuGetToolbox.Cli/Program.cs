@@ -7,14 +7,11 @@ using NuGetToolbox.Cli.Services;
 // Configure centralized DI
 var services = new ServiceCollection();
 
-// Logging: write to stderr via file logging (keeps stdout clean for JSON)
-services.AddLogging(builder =>
+// Logging: write ALL logs to stderr to keep stdout clean for JSON output
+services.AddLogging(builder => builder.AddConsole(options =>
 {
-    var logDir = Path.Combine(Path.GetTempPath(), "nuget-toolbox", "logs");
-    Directory.CreateDirectory(logDir);
-    var logFile = Path.Combine(logDir, $"nuget-toolbox-{DateTime.UtcNow:yyyyMMdd}.log");
-    builder.AddFile(logFile, minimumLevel: LogLevel.Debug);
-});
+    options.LogToStandardErrorThreshold = LogLevel.Trace;
+}));
 
 // Service registrations with correct lifetimes
 services.AddSingleton<NuGetPackageResolver>();  // Stateless, reusable
