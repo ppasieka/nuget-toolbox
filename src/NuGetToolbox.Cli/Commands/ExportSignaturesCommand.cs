@@ -35,6 +35,7 @@ public static class ExportSignaturesCommand
             Description = "Output format: json or jsonl"
         };
         formatOption.SetDefaultValue("json");
+        formatOption.FromAmong("json", "jsonl");
 
         var filterOption = new Option<string?>(["--filter", "--namespace"])
         {
@@ -47,12 +48,6 @@ public static class ExportSignaturesCommand
             Description = "Output file path (default: stdout)"
         };
 
-        var noCacheOption = new Option<bool>("--no-cache")
-        {
-            Description = "Bypass cache"
-        };
-        noCacheOption.SetDefaultValue(false);
-
         var command = new Command("export-signatures", "Export public method signatures with XML documentation")
         {
             packageOption,
@@ -60,8 +55,7 @@ public static class ExportSignaturesCommand
             tfmOption,
             formatOption,
             filterOption,
-            outputOption,
-            noCacheOption
+            outputOption
         };
 
         command.SetHandler(async (InvocationContext ctx) =>
@@ -72,7 +66,6 @@ public static class ExportSignaturesCommand
             var format = ctx.ParseResult.GetValueForOption(formatOption) ?? "json";
             var filter = ctx.ParseResult.GetValueForOption(filterOption);
             var output = ctx.ParseResult.GetValueForOption(outputOption);
-            var noCache = ctx.ParseResult.GetValueForOption(noCacheOption);
 
             var token = ctx.GetCancellationToken();
 

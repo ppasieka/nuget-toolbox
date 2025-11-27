@@ -48,7 +48,6 @@ public class ExportSignaturesCommandTests
         Assert.True(allNames.Contains("format") || allNames.Contains("--format"));
         Assert.True(allNames.Contains("filter") || allNames.Contains("--filter"));
         Assert.True(allNames.Contains("output") || allNames.Contains("--output"));
-        Assert.True(allNames.Contains("no-cache") || allNames.Contains("--no-cache"));
 
         // Check specific aliases
         Assert.Contains("-p", allAliases);
@@ -65,5 +64,37 @@ public class ExportSignaturesCommandTests
 
         // Assert
         Assert.Equal("Export public method signatures with XML documentation", command.Description);
+    }
+
+    [Fact]
+    public void Create_FormatOptionHasFromAmongConstraint()
+    {
+        // Arrange & Act
+        var command = ExportSignaturesCommand.Create(CreateTestServiceProvider());
+
+        // Assert
+        var formatOption = command.Options.FirstOrDefault(o => o.Name == "format" || o.Name == "--format");
+        Assert.NotNull(formatOption);
+
+        // Check completions contain exactly json and jsonl
+        var completions = formatOption.GetCompletions().Select(c => c.Label).ToList();
+        Assert.Contains("json", completions);
+        Assert.Contains("jsonl", completions);
+        Assert.Equal(2, completions.Count);
+    }
+
+    [Fact]
+    public void Create_NoCacheOptionRemoved()
+    {
+        // Arrange & Act
+        var command = ExportSignaturesCommand.Create(CreateTestServiceProvider());
+
+        // Assert
+        var allNames = command.Options.Select(o => o.Name).ToHashSet();
+        var allAliases = command.Options.SelectMany(o => o.Aliases).ToHashSet();
+
+        Assert.DoesNotContain("no-cache", allNames);
+        Assert.DoesNotContain("--no-cache", allNames);
+        Assert.DoesNotContain("--no-cache", allAliases);
     }
 }

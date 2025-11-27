@@ -1,4 +1,7 @@
+using System.CommandLine;
 using System.Reflection;
+using Microsoft.Extensions.DependencyInjection;
+using NuGetToolbox.Cli.Commands;
 
 namespace NuGetToolbox.Tests;
 
@@ -194,6 +197,80 @@ public class SchemaCommandTests
                 $"Property '{prop.Name}' missing description");
             Assert.False(string.IsNullOrWhiteSpace(description.GetString()),
                 $"Property '{prop.Name}' has empty description");
+        }
+    }
+
+    [Fact]
+    public async Task SchemaCommand_WithBothCommandAndAll_ReturnsInvalidOptions()
+    {
+        // Arrange
+        var services = new ServiceCollection().BuildServiceProvider();
+        var command = SchemaCommand.Create(services);
+
+        // Act
+        var exitCode = await command.InvokeAsync("--command find --all");
+
+        // Assert
+        Assert.Equal(3, exitCode); // ExitCodes.InvalidOptions
+    }
+
+    [Theory]
+    [InlineData("FIND")]
+    [InlineData("Find")]
+    [InlineData("LIST-TYPES")]
+    [InlineData("List-Types")]
+    [InlineData("DIFF")]
+    [InlineData("Diff")]
+    public async Task SchemaCommand_CaseInsensitiveCommandNames_AreAccepted(string commandName)
+    {
+        // Arrange
+        var services = new ServiceCollection().BuildServiceProvider();
+        var command = SchemaCommand.Create(services);
+
+        // Act
+        var exitCode = await command.InvokeAsync($"--command {commandName}");
+
+        // Assert
+        Assert.Equal(0, exitCode); // ExitCodes.Success
+    }
+
+    [Fact]
+    public async Task SchemaCommand_AllWithNonDirectoryOutput_ReturnsInvalidOptions()
+    {
+        // Arrange
+        var services = new ServiceCollection().BuildServiceProvider();
+        var command = SchemaCommand.Create(services);
+
+        // Act - output looks like a file path (no trailing slash, doesn't exist as directory)
+        var exitCode = await command.InvokeAsync("--all --output nonexistent-file.json");
+
+        // Assert
+        Assert.Equal(3, exitCode); // ExitCodes.InvalidOptions
+    }
+
+    [Fact]
+    public async Task SchemaCommand_AllWithDirectoryOutput_Succeeds()
+    {
+        // Arrange
+        var services = new ServiceCollection().BuildServiceProvider();
+        var command = SchemaCommand.Create(services);
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            // Act - output ends with trailing slash (valid directory indicator)
+            var exitCode = await command.InvokeAsync($"--all --output {tempDir}/");
+
+            // Assert
+            Assert.Equal(0, exitCode); // ExitCodes.Success
+        }
+        finally
+        {
+            // Cleanup
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
         }
     }
 }

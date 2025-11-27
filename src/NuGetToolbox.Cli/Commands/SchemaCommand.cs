@@ -51,6 +51,26 @@ public static class SchemaCommand
 
             try
             {
+                // Task 1.1: Enforce mutual exclusivity between --command and --all
+                if (!string.IsNullOrEmpty(commandName) && all)
+                {
+                    Console.Error.WriteLine("Error: --command and --all are mutually exclusive");
+                    ctx.ExitCode = ExitCodes.InvalidOptions;
+                    return;
+                }
+
+                // Task 1.2: Validate --output with --all is a directory path
+                if (all && !string.IsNullOrEmpty(output))
+                {
+                    var isDirectoryPath = output.EndsWith('/') || output.EndsWith('\\') || Directory.Exists(output);
+                    if (!isDirectoryPath)
+                    {
+                        Console.Error.WriteLine("Error: --output with --all must be a directory path");
+                        ctx.ExitCode = ExitCodes.InvalidOptions;
+                        return;
+                    }
+                }
+
                 if (all)
                 {
                     ctx.ExitCode = await HandleAllSchemasAsync(output);
@@ -64,7 +84,8 @@ public static class SchemaCommand
                     return;
                 }
 
-                if (!ValidCommands.Contains(commandName))
+                // Task 1.3: Case-insensitive command name matching
+                if (!ValidCommands.Contains(commandName, StringComparer.OrdinalIgnoreCase))
                 {
                     Console.Error.WriteLine($"Error: Invalid command name '{commandName}'");
                     Console.Error.WriteLine($"Valid commands: {string.Join(", ", ValidCommands)}");
@@ -72,6 +93,7 @@ public static class SchemaCommand
                     return;
                 }
 
+                commandName = commandName.ToLowerInvariant();
                 ctx.ExitCode = await ExportSchemaAsync(commandName, output);
             }
             catch (Exception ex)
