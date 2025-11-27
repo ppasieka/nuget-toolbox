@@ -66,12 +66,14 @@ public static class ListTypesCommand
         IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
     {
+        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+        var logger = loggerFactory.CreateLogger("ListTypesCommand");
+        string? tempDir = null;
+
         try
         {
             var resolver = serviceProvider.GetRequiredService<NuGetPackageResolver>();
             var inspector = serviceProvider.GetRequiredService<AssemblyInspector>();
-            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-            var logger = loggerFactory.CreateLogger("ListTypesCommand");
 
             logger.LogInformation("Resolving package {PackageId} (version: {Version})", packageId, version ?? "latest");
 
@@ -83,7 +85,8 @@ public static class ListTypesCommand
                 return ExitCodes.NotFound;
             }
 
-            var assemblyPaths = await ExtractAssembliesAsync(packageInfo.NupkgPath, tfm, logger, cancellationToken);
+            var (assemblyPaths, extractDir) = await ExtractAssembliesAsync(packageInfo.NupkgPath, tfm, logger, cancellationToken);
+            tempDir = extractDir;
 
             if (assemblyPaths.Count == 0)
             {
@@ -121,15 +124,27 @@ public static class ListTypesCommand
         }
         catch (Exception ex)
         {
-            var loggerFactory = serviceProvider?.GetService<ILoggerFactory>();
-            var logger = loggerFactory?.CreateLogger("ListTypesCommand");
-            logger?.LogError(ex, "Failed to list types for package {PackageId}", packageId);
+            logger.LogError(ex, "Failed to list types for package {PackageId}", packageId);
             Console.Error.WriteLine($"Error: {ex.Message}");
             return ExitCodes.Error;
         }
+        finally
+        {
+            if (!string.IsNullOrEmpty(tempDir) && Directory.Exists(tempDir))
+            {
+                try
+                {
+                    Directory.Delete(tempDir, recursive: true);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to cleanup temp directory {TempDir}", tempDir);
+                }
+            }
+        }
     }
 
-    private static async Task<List<string>> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger, CancellationToken cancellationToken)
+    private static async Task<(List<string> assemblies, string? tempDir)> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger, CancellationToken cancellationToken)
     {
         var assemblies = new List<string>();
 
@@ -143,7 +158,7 @@ public static class ListTypesCommand
         if (targetGroup == null)
         {
             logger.LogWarning("No lib items found for TFM {Tfm}", tfm ?? "any");
-            return assemblies;
+            return (assemblies, null);
         }
 
         var tempDir = Path.Combine(Path.GetTempPath(), $"nuget-toolbox-{Guid.NewGuid()}");
@@ -165,6 +180,6 @@ public static class ListTypesCommand
 
         logger.LogInformation("Extracted {Count} assemblies from {Tfm}", assemblies.Count, targetGroup.TargetFramework.GetShortFolderName());
 
-        return assemblies;
+        return (assemblies, tempDir);
     }
 }

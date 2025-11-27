@@ -77,13 +77,16 @@ public static class DiffCommand
         IServiceProvider serviceProvider,
         CancellationToken cancellationToken)
     {
+        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+        var logger = loggerFactory.CreateLogger("DiffCommand");
+        string? fromTempDir = null;
+        string? toTempDir = null;
+
         try
         {
             var resolver = serviceProvider.GetRequiredService<NuGetPackageResolver>();
             var exporter = serviceProvider.GetRequiredService<SignatureExporter>();
             var analyzer = serviceProvider.GetRequiredService<ApiDiffAnalyzer>();
-            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-            var logger = loggerFactory.CreateLogger("DiffCommand");
 
             logger.LogInformation("Comparing {PackageId} versions {From} -> {To}", packageId, fromVersion, toVersion);
 
@@ -101,8 +104,11 @@ public static class DiffCommand
                 return ExitCodes.NotFound;
             }
 
-            var fromAssemblies = await ExtractAssembliesAsync(fromPackage.NupkgPath, tfm, logger, cancellationToken);
-            var toAssemblies = await ExtractAssembliesAsync(toPackage.NupkgPath, tfm, logger, cancellationToken);
+            var (fromAssemblies, fromDir) = await ExtractAssembliesAsync(fromPackage.NupkgPath, tfm, logger, cancellationToken);
+            fromTempDir = fromDir;
+
+            var (toAssemblies, toDir) = await ExtractAssembliesAsync(toPackage.NupkgPath, tfm, logger, cancellationToken);
+            toTempDir = toDir;
 
             if (fromAssemblies.Count == 0 || toAssemblies.Count == 0)
             {
@@ -139,15 +145,33 @@ public static class DiffCommand
         }
         catch (Exception ex)
         {
-            var loggerFactory = serviceProvider?.GetService<ILoggerFactory>();
-            var logger = loggerFactory?.CreateLogger("DiffCommand");
-            logger?.LogError(ex, "Failed to compare package versions for {PackageId}", packageId);
+            logger.LogError(ex, "Failed to compare package versions for {PackageId}", packageId);
             Console.Error.WriteLine($"Error: {ex.Message}");
             return ExitCodes.Error;
         }
+        finally
+        {
+            CleanupTempDirectory(fromTempDir, logger);
+            CleanupTempDirectory(toTempDir, logger);
+        }
     }
 
-    private static async Task<List<string>> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger, CancellationToken cancellationToken)
+    private static void CleanupTempDirectory(string? tempDir, ILogger? logger)
+    {
+        if (!string.IsNullOrEmpty(tempDir) && Directory.Exists(tempDir))
+        {
+            try
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to cleanup temp directory {TempDir}", tempDir);
+            }
+        }
+    }
+
+    private static async Task<(List<string> assemblies, string? tempDir)> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger, CancellationToken cancellationToken)
     {
         var assemblies = new List<string>();
 
@@ -161,7 +185,7 @@ public static class DiffCommand
         if (targetGroup == null)
         {
             logger.LogWarning("No lib items found for TFM {Tfm}", tfm ?? "any");
-            return assemblies;
+            return (assemblies, null);
         }
 
         var tempDir = Path.Combine(Path.GetTempPath(), $"nuget-toolbox-{Guid.NewGuid()}");
@@ -196,6 +220,6 @@ public static class DiffCommand
 
         logger.LogInformation("Extracted {Count} assemblies from {Tfm}", assemblies.Count, targetGroup.TargetFramework.GetShortFolderName());
 
-        return assemblies;
+        return (assemblies, tempDir);
     }
 }
