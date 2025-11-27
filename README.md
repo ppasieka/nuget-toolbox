@@ -106,18 +106,9 @@ nuget-toolbox list-types --package "Newtonsoft.Json" --output "types.json"
     { "namespace": "Newtonsoft.Json.Serialization", "name": "JsonSerializerSettings", "kind": "class" }
   ]
 }
-
-Direct dependencies:
-  [net8.0]
-    - System.Runtime (>= 4.3.0)
-  [netstandard2.0]
-    - Microsoft.CSharp (>= 4.3.0)
-
-Tip: To inspect dependencies, run:
-  nuget-toolbox list-types --package <DependencyId>
 ```
 
-**Partial Results:** If a package has missing dependencies, the tool will extract and return all successfully-loaded types. Missing dependencies are logged at Debug level and direct dependencies are displayed to help you inspect them separately.
+**Partial Results:** If a package has missing dependencies, the tool will extract and return all successfully-loaded types. Missing dependencies are logged at Debug level.
 
 **Options:**
 - `--package, -p` **[required]** – Package ID
@@ -174,7 +165,6 @@ nuget-toolbox export-signatures \
 - `--format` – Output format: `json` or `jsonl` (default: json)
 - `--filter` – Namespace filter (e.g., `Newtonsoft.Json.Linq`). Alias: `--namespace`.
 - `--output, -o` – Output file path (default: stdout)
-- `--no-cache` – Bypass cache
 
 ---
 
@@ -358,13 +348,7 @@ export VSS_NUGET_EXTERNAL_FEED_ENDPOINTS='{"endpointCredentials":[...]}'
 
 ## 💾 Caching
 
-Results are cached by `(packageId, version, tfm)` with TTL. Override:
-
-```bash
-nuget-toolbox export-signatures --package "Newtonsoft.Json" --no-cache
-```
-
-Cache location: `~/.nuget-toolbox/cache/`
+NuGet packages are cached by the standard NuGet client in the global packages folder (`~/.nuget/packages/`).
 
 ---
 
@@ -523,8 +507,8 @@ dotnet run --project src/NuGetToolbox.Cli -- \
 - **XML docs** appear only if package ships `.xml` file alongside DLL
 - **Generic method doc IDs** edge cases normalized; unmapped docs not synthesized
 - **Obfuscated/mixed-mode** assemblies may reduce signature readability
-- **Large packages** (>100MB) may require `--no-cache` due to extraction overhead
-- **Missing dependencies**: The tool only inspects the requested package, not its dependency tree. If types reference missing dependencies, those types are skipped and logged at Debug level. Direct dependencies are listed to help you inspect them separately.
+- **Large packages** (>100MB) may require extended extraction time
+- **Missing dependencies**: The tool only inspects the requested package, not its dependency tree. If types reference missing dependencies, those types are skipped and logged at Debug level.
 
 ---
 
@@ -603,7 +587,7 @@ MIT – See LICENSE file
 A: Yes! We use `MetadataLoadContext` exclusively—zero code execution. Only metadata is inspected.
 
 **Q: Can I use this offline?**  
-A: After initial download, yes. Use `--no-cache` to skip previous caches, but package must be downloaded first.
+A: After initial download, yes. Packages are cached in the standard NuGet global packages folder.
 
 **Q: Does this respect authentication?**  
 A: Yes! Standard NuGet credential providers (Azure, GitHub, Nexus, etc.) are supported via `nuget.config`.
