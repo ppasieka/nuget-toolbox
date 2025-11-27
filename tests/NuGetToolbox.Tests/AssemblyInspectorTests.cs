@@ -115,7 +115,7 @@ public class AssemblyInspectorTests
         try
         {
             // Act
-            var types = inspector.ExtractPublicTypesFromMultiple(assembly1Path, assembly2Path);
+            var types = inspector.ExtractPublicTypesFromMultiple([assembly1Path, assembly2Path]);
 
             // Assert
             Assert.NotNull(types);

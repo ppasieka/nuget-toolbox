@@ -36,7 +36,10 @@ public class SignatureExporter
     /// <summary>
     /// Exports methods from assemblies with optional namespace filtering.
     /// </summary>
-    public List<Models.MethodInfo> ExportMethods(IEnumerable<string> assemblyPaths, string? namespaceFilter = null)
+    public List<Models.MethodInfo> ExportMethods(
+        IEnumerable<string> assemblyPaths,
+        string? namespaceFilter = null,
+        CancellationToken cancellationToken = default)
     {
         var methods = new List<Models.MethodInfo>();
         var pathsArray = assemblyPaths.ToArray();
@@ -52,6 +55,7 @@ public class SignatureExporter
 
         foreach (var assemblyPath in pathsArray)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var assembly = mlc.LoadFromAssemblyPath(assemblyPath);
@@ -70,7 +74,7 @@ public class SignatureExporter
                 catch (ReflectionTypeLoadException ex)
                 {
                     types = ex.Types.Where(t => t != null).ToArray()!;
-                    _logger.LogWarning("Partial type load in {Assembly}: {LoadedCount}/{TotalCount} types loaded", 
+                    _logger.LogWarning("Partial type load in {Assembly}: {LoadedCount}/{TotalCount} types loaded",
                         assemblyPath, types.Length, ex.Types.Length);
                 }
 

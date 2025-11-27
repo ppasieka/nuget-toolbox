@@ -16,7 +16,8 @@ A **CLI tool** for analyzing public APIs in NuGet packages without executing cod
 - 🔗 **Private feed support** – respects `nuget.config`, Azure Artifacts, GitHub Packages, etc.
 - 📊 **LLM-ready output** – compact JSON/JSONL for AI context injection
 - 💾 **Smart caching** – versioned by (packageId, version, tfm) with TTL controls
-- 🧵 **Async I/O** – non-blocking, structured logging with `--verbose`
+- 🧵 **Async I/O** – non-blocking execution with robust cancellation (`Ctrl+C`)
+
 
 ---
 
@@ -171,7 +172,7 @@ nuget-toolbox export-signatures \
 - `--version, -v` – Package version (default: latest)
 - `--tfm` – Target framework (default: auto-detect best fit)
 - `--format` – Output format: `json` or `jsonl` (default: json)
-- `--filter` – Namespace filter (e.g., `Newtonsoft.Json.Linq`)
+- `--filter` – Namespace filter (e.g., `Newtonsoft.Json.Linq`). Alias: `--namespace`.
 - `--output, -o` – Output file path (default: stdout)
 - `--no-cache` – Bypass cache
 
@@ -471,6 +472,15 @@ nuget-toolbox export-signatures \
 ---
 
 ## 🔧 Configuration
+
+### Exit Codes
+
+- `0` - Success
+- `1` - Package/Version not found
+- `2` - Target Framework mismatch or not found
+- `3` - Invalid options or arguments
+- `4` - Network or Authentication error
+- `5` - Unexpected runtime error
 
 ### TFM Preference Order (default)
 

@@ -20,12 +20,14 @@ public class AssemblyInspector
     /// <summary>
     /// Extracts public types from assembly files.
     /// </summary>
-    public List<Models.TypeInfo> ExtractPublicTypes(string assemblyPath)
+    public List<Models.TypeInfo> ExtractPublicTypes(string assemblyPath, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(assemblyPath))
         {
             throw new FileNotFoundException($"Assembly not found: {assemblyPath}");
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         _logger.LogInformation("Extracting public types from {AssemblyPath}", assemblyPath);
 
@@ -59,6 +61,7 @@ public class AssemblyInspector
 
             foreach (var type in assemblyTypes)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
                     if (!type.IsPublic)
@@ -105,13 +108,14 @@ public class AssemblyInspector
     /// <summary>
     /// Extracts public types from multiple assembly files.
     /// </summary>
-    public List<Models.TypeInfo> ExtractPublicTypesFromMultiple(params string[] assemblyPaths)
+    public List<Models.TypeInfo> ExtractPublicTypesFromMultiple(string[] assemblyPaths, CancellationToken cancellationToken = default)
     {
         var allTypes = new List<Models.TypeInfo>();
 
         foreach (var path in assemblyPaths)
         {
-            var types = ExtractPublicTypes(path);
+            cancellationToken.ThrowIfCancellationRequested();
+            var types = ExtractPublicTypes(path, cancellationToken);
             allTypes.AddRange(types);
         }
 

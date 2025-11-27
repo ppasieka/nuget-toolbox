@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Invocation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
@@ -13,13 +14,13 @@ public static class ExportSignaturesCommand
 {
     public static Command Create(IServiceProvider? serviceProvider = null)
     {
-        var packageOption = new Option<string>("--package", new[] { "-p" })
+        var packageOption = new Option<string>(["--package", "-p"])
         {
             Description = "Package ID",
-            Required = true
+            IsRequired = true
         };
 
-        var versionOption = new Option<string?>("--version", new[] { "-v" })
+        var versionOption = new Option<string?>(["--version", "-v"])
         {
             Description = "Package version (if omitted, uses latest)"
         };
@@ -31,25 +32,26 @@ public static class ExportSignaturesCommand
 
         var formatOption = new Option<string>("--format")
         {
-            Description = "Output format: json or jsonl",
-            DefaultValueFactory = _ => "json"
+            Description = "Output format: json or jsonl"
         };
+        formatOption.SetDefaultValue("json");
 
-        var filterOption = new Option<string?>("--filter", new[] { "--namespace" })
+        var filterOption = new Option<string?>(["--filter", "--namespace"])
         {
+            Name = "filter",
             Description = "Namespace filter (e.g., Newtonsoft.Json.Linq)"
         };
 
-        var outputOption = new Option<string?>("--output", new[] { "-o" })
+        var outputOption = new Option<string?>(["--output", "-o"])
         {
             Description = "Output file path (default: stdout)"
         };
 
         var noCacheOption = new Option<bool>("--no-cache")
         {
-            Description = "Bypass cache",
-            DefaultValueFactory = _ => false
+            Description = "Bypass cache"
         };
+        noCacheOption.SetDefaultValue(false);
 
         var command = new Command("export-signatures", "Export public method signatures with XML documentation")
         {
@@ -62,21 +64,21 @@ public static class ExportSignaturesCommand
             noCacheOption
         };
 
-        command.SetAction(Handler);
-        return command;
-
-        int Handler(ParseResult parseResult)
+        command.SetHandler(async (InvocationContext ctx) =>
         {
-            var package = parseResult.GetValue(packageOption);
-            var version = parseResult.GetValue(versionOption);
-            var tfm = parseResult.GetValue(tfmOption);
-            var format = parseResult.GetValue(formatOption) ?? "json";
-            var filter = parseResult.GetValue(filterOption);
-            var output = parseResult.GetValue(outputOption);
-            var noCache = parseResult.GetValue(noCacheOption);
+            var package = ctx.ParseResult.GetValueForOption(packageOption);
+            var version = ctx.ParseResult.GetValueForOption(versionOption);
+            var tfm = ctx.ParseResult.GetValueForOption(tfmOption);
+            var format = ctx.ParseResult.GetValueForOption(formatOption) ?? "json";
+            var filter = ctx.ParseResult.GetValueForOption(filterOption);
+            var output = ctx.ParseResult.GetValueForOption(outputOption);
+            var noCache = ctx.ParseResult.GetValueForOption(noCacheOption);
 
-            return HandlerAsync(package!, version, tfm, format, filter, output, serviceProvider).GetAwaiter().GetResult();
-        }
+            var token = ctx.GetCancellationToken();
+
+            ctx.ExitCode = await HandlerAsync(package!, version, tfm, format, filter, output, serviceProvider, token);
+        });
+        return command;
     }
 
     private static async Task<int> HandlerAsync(
@@ -86,7 +88,8 @@ public static class ExportSignaturesCommand
         string format,
         string? namespaceFilter,
         string? output,
-        IServiceProvider? serviceProvider)
+        IServiceProvider? serviceProvider,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -99,23 +102,23 @@ public static class ExportSignaturesCommand
 
             logger.LogInformation("Resolving package {PackageId} (version: {Version})", packageId, version ?? "latest");
 
-            var packageInfo = await resolver.ResolvePackageAsync(packageId, version);
+            var packageInfo = await resolver.ResolvePackageAsync(packageId, version, cancellationToken: cancellationToken);
 
             if (packageInfo == null || !packageInfo.Resolved || string.IsNullOrEmpty(packageInfo.NupkgPath))
             {
                 logger.LogError("Package {PackageId} not found", packageId);
-                return 1;
+                return ExitCodes.NotFound;
             }
 
-            var assemblyPaths = await ExtractAssembliesAsync(packageInfo.NupkgPath, tfm, logger);
+            var assemblyPaths = await ExtractAssembliesAsync(packageInfo.NupkgPath, tfm, logger, cancellationToken);
 
             if (assemblyPaths.Count == 0)
             {
                 logger.LogWarning("No assemblies found in package for TFM {Tfm}", tfm ?? "any");
-                return 1;
+                return ExitCodes.TfmMismatch;
             }
 
-            var methods = exporter.ExportMethods(assemblyPaths, namespaceFilter);
+            var methods = exporter.ExportMethods(assemblyPaths, namespaceFilter, cancellationToken);
 
             var result = format.ToLowerInvariant() == "jsonl"
                 ? exporter.ExportToJsonL(methods)
@@ -123,7 +126,7 @@ public static class ExportSignaturesCommand
 
             if (!string.IsNullOrEmpty(output))
             {
-                await File.WriteAllTextAsync(output, result);
+                await File.WriteAllTextAsync(output, result, cancellationToken);
                 logger.LogInformation("Method signatures written to {OutputPath}", output);
             }
             else
@@ -131,7 +134,7 @@ public static class ExportSignaturesCommand
                 Console.WriteLine(result);
             }
 
-            return 0;
+            return ExitCodes.Success;
         }
         catch (Exception ex)
         {
@@ -139,16 +142,16 @@ public static class ExportSignaturesCommand
             var logger = loggerFactory?.CreateLogger("ExportSignaturesCommand");
             logger?.LogError(ex, "Failed to export signatures for package {PackageId}", packageId);
             Console.Error.WriteLine($"Error: {ex.Message}");
-            return 1;
+            return ExitCodes.Error;
         }
     }
 
-    private static async Task<List<string>> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger)
+    private static async Task<List<string>> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger, CancellationToken cancellationToken)
     {
         var assemblies = new List<string>();
 
         using var packageReader = new PackageArchiveReader(nupkgPath);
-        var libItems = await packageReader.GetLibItemsAsync(CancellationToken.None);
+        var libItems = await packageReader.GetLibItemsAsync(cancellationToken);
 
         var targetGroup = string.IsNullOrEmpty(tfm)
             ? libItems.OrderByDescending(g => g.TargetFramework.Version).FirstOrDefault()
@@ -171,7 +174,7 @@ public static class ExportSignaturesCommand
             using (var stream = packageReader.GetStream(item))
             using (var fileStream = File.Create(destPath))
             {
-                await stream.CopyToAsync(fileStream);
+                await stream.CopyToAsync(fileStream, cancellationToken);
             }
 
             assemblies.Add(destPath);
@@ -186,7 +189,7 @@ public static class ExportSignaturesCommand
             using (var stream = packageReader.GetStream(item))
             using (var fileStream = File.Create(destPath))
             {
-                await stream.CopyToAsync(fileStream);
+                await stream.CopyToAsync(fileStream, cancellationToken);
             }
         }
 

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Invocation;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,22 +16,22 @@ public static class DiffCommand
 {
     public static Command Create(IServiceProvider? serviceProvider = null)
     {
-        var packageOption = new Option<string>("--package", "-p")
+        var packageOption = new Option<string>(["--package", "-p"])
         {
             Description = "Package ID",
-            Required = true
+            IsRequired = true
         };
 
         var fromOption = new Option<string>("--from")
         {
             Description = "From version",
-            Required = true
+            IsRequired = true
         };
 
         var toOption = new Option<string>("--to")
         {
             Description = "To version",
-            Required = true
+            IsRequired = true
         };
 
         var tfmOption = new Option<string?>("--tfm")
@@ -38,7 +39,7 @@ public static class DiffCommand
             Description = "Target framework moniker (e.g., net8.0, netstandard2.0)"
         };
 
-        var outputOption = new Option<string?>("--output", "-o")
+        var outputOption = new Option<string?>(["--output", "-o"])
         {
             Description = "Output file path (default: stdout)"
         };
@@ -52,19 +53,19 @@ public static class DiffCommand
             outputOption
         };
 
-        command.SetAction(Handler);
-        return command;
-
-        int Handler(ParseResult parseResult)
+        command.SetHandler(async (InvocationContext ctx) =>
         {
-            var package = parseResult.GetValue(packageOption);
-            var from = parseResult.GetValue(fromOption);
-            var to = parseResult.GetValue(toOption);
-            var tfm = parseResult.GetValue(tfmOption);
-            var output = parseResult.GetValue(outputOption);
+            var package = ctx.ParseResult.GetValueForOption(packageOption);
+            var from = ctx.ParseResult.GetValueForOption(fromOption);
+            var to = ctx.ParseResult.GetValueForOption(toOption);
+            var tfm = ctx.ParseResult.GetValueForOption(tfmOption);
+            var output = ctx.ParseResult.GetValueForOption(outputOption);
 
-            return HandlerAsync(package!, from!, to!, tfm, output, serviceProvider).GetAwaiter().GetResult();
-        }
+            var token = ctx.GetCancellationToken();
+
+            ctx.ExitCode = await HandlerAsync(package!, from!, to!, tfm, output, serviceProvider, token);
+        });
+        return command;
     }
 
     private static async Task<int> HandlerAsync(
@@ -73,7 +74,8 @@ public static class DiffCommand
         string toVersion,
         string? tfm,
         string? output,
-        IServiceProvider? serviceProvider)
+        IServiceProvider? serviceProvider,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -87,34 +89,34 @@ public static class DiffCommand
 
             logger.LogInformation("Comparing {PackageId} versions {From} -> {To}", packageId, fromVersion, toVersion);
 
-            var fromPackage = await resolver.ResolvePackageAsync(packageId, fromVersion);
+            var fromPackage = await resolver.ResolvePackageAsync(packageId, fromVersion, cancellationToken: cancellationToken);
             if (fromPackage == null || !fromPackage.Resolved || string.IsNullOrEmpty(fromPackage.NupkgPath))
             {
                 logger.LogError("Package {PackageId} version {Version} not found", packageId, fromVersion);
-                return 1;
+                return ExitCodes.NotFound;
             }
 
-            var toPackage = await resolver.ResolvePackageAsync(packageId, toVersion);
+            var toPackage = await resolver.ResolvePackageAsync(packageId, toVersion, cancellationToken: cancellationToken);
             if (toPackage == null || !toPackage.Resolved || string.IsNullOrEmpty(toPackage.NupkgPath))
             {
                 logger.LogError("Package {PackageId} version {Version} not found", packageId, toVersion);
-                return 1;
+                return ExitCodes.NotFound;
             }
 
-            var fromAssemblies = await ExtractAssembliesAsync(fromPackage.NupkgPath, tfm, logger);
-            var toAssemblies = await ExtractAssembliesAsync(toPackage.NupkgPath, tfm, logger);
+            var fromAssemblies = await ExtractAssembliesAsync(fromPackage.NupkgPath, tfm, logger, cancellationToken);
+            var toAssemblies = await ExtractAssembliesAsync(toPackage.NupkgPath, tfm, logger, cancellationToken);
 
             if (fromAssemblies.Count == 0 || toAssemblies.Count == 0)
             {
                 logger.LogWarning("No assemblies found in one or both package versions for TFM {Tfm}", tfm ?? "any");
-                return 1;
+                return ExitCodes.TfmMismatch;
             }
 
-            var methodsFrom = exporter.ExportMethods(fromAssemblies);
-            var methodsTo = exporter.ExportMethods(toAssemblies);
+            var methodsFrom = exporter.ExportMethods(fromAssemblies, cancellationToken: cancellationToken);
+            var methodsTo = exporter.ExportMethods(toAssemblies, cancellationToken: cancellationToken);
 
             var targetFramework = tfm ?? fromPackage.Tfms?.FirstOrDefault() ?? "unknown";
-            var diffResult = analyzer.CompareVersions(packageId, methodsFrom, methodsTo, fromVersion, toVersion, targetFramework);
+            var diffResult = analyzer.CompareVersions(packageId, methodsFrom, methodsTo, fromVersion, toVersion, targetFramework, cancellationToken);
 
             var options = new JsonSerializerOptions
             {
@@ -127,7 +129,7 @@ public static class DiffCommand
 
             if (!string.IsNullOrEmpty(output))
             {
-                await File.WriteAllTextAsync(output, json);
+                await File.WriteAllTextAsync(output, json, cancellationToken);
                 logger.LogInformation("Diff result written to {OutputPath}", output);
             }
             else
@@ -135,7 +137,7 @@ public static class DiffCommand
                 Console.WriteLine(json);
             }
 
-            return 0;
+            return ExitCodes.Success;
         }
         catch (Exception ex)
         {
@@ -143,16 +145,16 @@ public static class DiffCommand
             var logger = loggerFactory?.CreateLogger("DiffCommand");
             logger?.LogError(ex, "Failed to compare package versions for {PackageId}", packageId);
             Console.Error.WriteLine($"Error: {ex.Message}");
-            return 1;
+            return ExitCodes.Error;
         }
     }
 
-    private static async Task<List<string>> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger)
+    private static async Task<List<string>> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger, CancellationToken cancellationToken)
     {
         var assemblies = new List<string>();
 
         using var packageReader = new PackageArchiveReader(nupkgPath);
-        var libItems = await packageReader.GetLibItemsAsync(CancellationToken.None);
+        var libItems = await packageReader.GetLibItemsAsync(cancellationToken);
 
         var targetGroup = string.IsNullOrEmpty(tfm)
             ? libItems.OrderByDescending(g => g.TargetFramework.Version).FirstOrDefault()
@@ -175,7 +177,7 @@ public static class DiffCommand
             using (var stream = packageReader.GetStream(item))
             using (var fileStream = File.Create(destPath))
             {
-                await stream.CopyToAsync(fileStream);
+                await stream.CopyToAsync(fileStream, cancellationToken);
             }
 
             assemblies.Add(destPath);
@@ -190,7 +192,7 @@ public static class DiffCommand
             using (var stream = packageReader.GetStream(item))
             using (var fileStream = File.Create(destPath))
             {
-                await stream.CopyToAsync(fileStream);
+                await stream.CopyToAsync(fileStream, cancellationToken);
             }
         }
 

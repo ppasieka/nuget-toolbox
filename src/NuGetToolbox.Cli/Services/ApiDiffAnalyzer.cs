@@ -24,7 +24,8 @@ public class ApiDiffAnalyzer
         List<MethodInfo> methodsTo,
         string versionFrom,
         string versionTo,
-        string tfm)
+        string tfm,
+        CancellationToken cancellationToken = default)
     {
         methodsFrom ??= new List<MethodInfo>();
         methodsTo ??= new List<MethodInfo>();
@@ -34,12 +35,15 @@ public class ApiDiffAnalyzer
         var baseDict = BuildMethodDictionary(methodsFrom);
         var newDict = BuildMethodDictionary(methodsTo);
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         var removed = new List<DiffItem>();
         var added = new List<TypeInfo>();
         var breaking = new List<DiffItem>();
 
         foreach (var (key, method) in baseDict)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!newDict.ContainsKey(key))
             {
                 var diffItem = new DiffItem

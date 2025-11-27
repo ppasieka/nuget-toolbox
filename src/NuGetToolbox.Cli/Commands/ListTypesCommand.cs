@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Invocation;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,13 +16,13 @@ public static class ListTypesCommand
 {
     public static Command Create(IServiceProvider? serviceProvider = null)
     {
-        var packageOption = new Option<string>("--package", "-p")
+        var packageOption = new Option<string>(["--package", "-p"])
         {
             Description = "Package ID",
-            Required = true
+            IsRequired = true
         };
 
-        var versionOption = new Option<string?>("--version", "-v")
+        var versionOption = new Option<string?>(["--version", "-v"])
         {
             Description = "Package version (if omitted, uses latest)"
         };
@@ -31,7 +32,7 @@ public static class ListTypesCommand
             Description = "Target framework moniker (e.g., net8.0, netstandard2.0)"
         };
 
-        var outputOption = new Option<string?>("--output", "-o")
+        var outputOption = new Option<string?>(["--output", "-o"])
         {
             Description = "Output file path (default: stdout)"
         };
@@ -44,18 +45,17 @@ public static class ListTypesCommand
             outputOption
         };
 
-        command.SetAction(Handler);
-        return command;
-
-        int Handler(ParseResult parseResult)
+        command.SetHandler(async (InvocationContext ctx) =>
         {
-            var package = parseResult.GetValue(packageOption);
-            var version = parseResult.GetValue(versionOption);
-            var tfm = parseResult.GetValue(tfmOption);
-            var output = parseResult.GetValue(outputOption);
+            var package = ctx.ParseResult.GetValueForOption(packageOption);
+            var version = ctx.ParseResult.GetValueForOption(versionOption);
+            var tfm = ctx.ParseResult.GetValueForOption(tfmOption);
+            var output = ctx.ParseResult.GetValueForOption(outputOption);
+            var token = ctx.GetCancellationToken();
 
-            return HandlerAsync(package!, version, tfm, output, serviceProvider).GetAwaiter().GetResult();
-        }
+            ctx.ExitCode = await HandlerAsync(package!, version, tfm, output, serviceProvider, token);
+        });
+        return command;
     }
 
     private static async Task<int> HandlerAsync(
@@ -63,7 +63,8 @@ public static class ListTypesCommand
         string? version,
         string? tfm,
         string? output,
-        IServiceProvider? serviceProvider)
+        IServiceProvider? serviceProvider,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -76,26 +77,26 @@ public static class ListTypesCommand
 
             logger.LogInformation("Resolving package {PackageId} (version: {Version})", packageId, version ?? "latest");
 
-            var packageInfo = await resolver.ResolvePackageAsync(packageId, version);
+            var packageInfo = await resolver.ResolvePackageAsync(packageId, version, null, cancellationToken);
 
             if (packageInfo == null || !packageInfo.Resolved || string.IsNullOrEmpty(packageInfo.NupkgPath))
             {
                 logger.LogError("Package {PackageId} not found", packageId);
-                return 1;
+                return ExitCodes.NotFound;
             }
 
-            var assemblyPaths = await ExtractAssembliesAsync(packageInfo.NupkgPath, tfm, logger);
+            var assemblyPaths = await ExtractAssembliesAsync(packageInfo.NupkgPath, tfm, logger, cancellationToken);
 
             if (assemblyPaths.Count == 0)
             {
                 logger.LogWarning("No assemblies found in package for TFM {Tfm}", tfm ?? "any");
-                return 1;
+                return ExitCodes.TfmMismatch;
             }
 
             var allTypes = new List<Models.TypeInfo>();
             foreach (var assemblyPath in assemblyPaths)
             {
-                var types = inspector.ExtractPublicTypes(assemblyPath);
+                var types = inspector.ExtractPublicTypes(assemblyPath, cancellationToken);
                 allTypes.AddRange(types);
             }
 
@@ -110,7 +111,7 @@ public static class ListTypesCommand
 
             if (!string.IsNullOrEmpty(output))
             {
-                await File.WriteAllTextAsync(output, json);
+                await File.WriteAllTextAsync(output, json, cancellationToken);
                 logger.LogInformation("Type information written to {OutputPath}", output);
             }
             else
@@ -118,7 +119,7 @@ public static class ListTypesCommand
                 Console.WriteLine(json);
             }
 
-            return 0;
+            return ExitCodes.Success;
         }
         catch (Exception ex)
         {
@@ -126,16 +127,16 @@ public static class ListTypesCommand
             var logger = loggerFactory?.CreateLogger("ListTypesCommand");
             logger?.LogError(ex, "Failed to list types for package {PackageId}", packageId);
             Console.Error.WriteLine($"Error: {ex.Message}");
-            return 1;
+            return ExitCodes.Error;
         }
     }
 
-    private static async Task<List<string>> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger)
+    private static async Task<List<string>> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger, CancellationToken cancellationToken)
     {
         var assemblies = new List<string>();
 
         using var packageReader = new PackageArchiveReader(nupkgPath);
-        var libItems = await packageReader.GetLibItemsAsync(CancellationToken.None);
+        var libItems = await packageReader.GetLibItemsAsync(cancellationToken);
 
         var targetGroup = string.IsNullOrEmpty(tfm)
             ? libItems.OrderByDescending(g => g.TargetFramework.Version).FirstOrDefault()
@@ -158,7 +159,7 @@ public static class ListTypesCommand
             using (var stream = packageReader.GetStream(item))
             using (var fileStream = File.Create(destPath))
             {
-                await stream.CopyToAsync(fileStream);
+                await stream.CopyToAsync(fileStream, cancellationToken);
             }
 
             assemblies.Add(destPath);

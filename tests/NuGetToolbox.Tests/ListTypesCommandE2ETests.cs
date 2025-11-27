@@ -22,7 +22,7 @@ public class ListTypesCommandE2ETests
         // Arrange
         var arguments = $"list-types --package Newtonsoft.Json --version 13.0.1";
         _output.WriteLine($"Executing: dotnet {_cliPath} {arguments}");
-        
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",

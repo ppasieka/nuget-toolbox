@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Invocation;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,23 +15,23 @@ public static class FindCommand
 {
     public static Command Create(IServiceProvider? serviceProvider = null)
     {
-        var packageOption = new Option<string>("--package", "-p")
+        var packageOption = new Option<string>(["--package", "-p"])
         {
             Description = "Package ID to search for",
-            Required = true
+            IsRequired = true
         };
 
-        var versionOption = new Option<string?>("--version", "-v")
+        var versionOption = new Option<string?>(["--version", "-v"])
         {
             Description = "Package version (if omitted, uses latest)"
         };
 
-        var feedOption = new Option<string?>("--feed", "-f")
+        var feedOption = new Option<string?>(["--feed", "-f"])
         {
             Description = "NuGet feed URL (if omitted, uses system nuget.config)"
         };
 
-        var outputOption = new Option<string?>("--output", "-o")
+        var outputOption = new Option<string?>(["--output", "-o"])
         {
             Description = "Output file path (default: stdout)"
         };
@@ -43,18 +44,17 @@ public static class FindCommand
             outputOption
         };
 
-        command.SetAction(Handler);
-        return command;
-
-        int Handler(ParseResult parseResult)
+        command.SetHandler(async (InvocationContext ctx) =>
         {
-            var packageId = parseResult.GetValue(packageOption);
-            var version = parseResult.GetValue(versionOption);
-            var feed = parseResult.GetValue(feedOption);
-            var output = parseResult.GetValue(outputOption);
+            var packageId = ctx.ParseResult.GetValueForOption(packageOption);
+            var version = ctx.ParseResult.GetValueForOption(versionOption);
+            var feed = ctx.ParseResult.GetValueForOption(feedOption);
+            var output = ctx.ParseResult.GetValueForOption(outputOption);
+            var token = ctx.GetCancellationToken();
 
-            return HandlerAsync(packageId!, version, feed, output, serviceProvider).GetAwaiter().GetResult();
-        }
+            ctx.ExitCode = await HandlerAsync(packageId!, version, feed, output, serviceProvider, token);
+        });
+        return command;
     }
 
     private static async Task<int> HandlerAsync(
@@ -62,7 +62,8 @@ public static class FindCommand
         string? version,
         string? feed,
         string? output,
-        IServiceProvider? serviceProvider)
+        IServiceProvider? serviceProvider,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -76,12 +77,12 @@ public static class FindCommand
             logger.LogInformation("Resolving package {PackageId} (version: {Version}, feed: {Feed})",
                 packageId, version ?? "latest", feed ?? "system-defined");
 
-            var packageInfo = await resolver.ResolvePackageAsync(packageId, version, feed);
+            var packageInfo = await resolver.ResolvePackageAsync(packageId, version, feed, cancellationToken);
 
             if (packageInfo == null || !packageInfo.Resolved)
             {
                 logger.LogError("Package {PackageId} not found", packageId);
-                return 1;
+                return ExitCodes.NotFound;
             }
 
             // Serialize to JSON with camelCase
@@ -97,7 +98,7 @@ public static class FindCommand
             // Write to file or stdout
             if (!string.IsNullOrEmpty(output))
             {
-                await File.WriteAllTextAsync(output, json);
+                await File.WriteAllTextAsync(output, json, cancellationToken);
                 logger.LogInformation("Package information written to {OutputPath}", output);
             }
             else
@@ -105,7 +106,7 @@ public static class FindCommand
                 Console.WriteLine(json);
             }
 
-            return 0;
+            return ExitCodes.Success;
         }
         catch (Exception ex)
         {
@@ -113,7 +114,7 @@ public static class FindCommand
             var logger = loggerFactory?.CreateLogger("FindCommand");
             logger?.LogError(ex, "Failed to resolve package {PackageId}", packageId);
             Console.Error.WriteLine($"Error: {ex.Message}");
-            return 1;
+            return ExitCodes.Error;
         }
     }
 

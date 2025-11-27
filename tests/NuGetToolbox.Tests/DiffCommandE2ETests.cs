@@ -22,7 +22,7 @@ public class DiffCommandE2ETests
         // Arrange
         var arguments = $"diff --package Newtonsoft.Json --from 13.0.1 --to 13.0.3";
         _output.WriteLine($"Executing: dotnet {_cliPath} {arguments}");
-        
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",

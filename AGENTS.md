@@ -169,13 +169,22 @@ All models use `System.Text.Json` with camelCase `[JsonPropertyName]`:
 ## Code Style
 
 - **C# 11+** only; C# 12 features OK if `.csproj` updated
+- Use collection expressions for arrays and lists ( use [ .. ] instead of new [] { .. })
 - **Nullable:** All public APIs must be annotated (`T`, `T?`)
 - **Naming:** `PascalCase` (types/methods), `camelCase` (locals/params)
 - **Async:** `async Task` for I/O; no `.Result` or `.Wait()`
+- **Handlers:** Use `command.SetHandler(...)` with `InvocationContext` or `CancellationToken` for cancellation support
 - **Logging:** Use `ILogger<T>` with structured context
 - **JSON:** `System.Text.Json` only; camelCase property names
 - **Imports:** Alphabetically sorted; no wildcards
 - **Errors:** Custom exceptions with actionable messages
+- **Exit Codes:**
+  - 0: Success
+  - 1: Package/Version not found
+  - 2: Target Framework mismatch or not found
+  - 3: Invalid options or arguments
+  - 4: Network or Authentication error
+  - 5: Unexpected runtime error
 
 ## Testing Strategy
 

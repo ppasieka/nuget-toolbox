@@ -43,7 +43,7 @@ public class FindCommandTests
             Resolved = true,
             Source = "https://api.nuget.org/v3/index.json",
             NupkgPath = "/path/to/newtonsoft.json.13.0.3.nupkg",
-            Tfms = new List<string> { "net462", "netstandard2.0", "net6.0" }
+            Tfms = ["net462", "netstandard2.0", "net6.0"]
         };
 
         var options = new System.Text.Json.JsonSerializerOptions
@@ -110,7 +110,7 @@ public class FindCommandTests
             PackageId = "Test",
             Version = "1.0.0",
             Resolved = true,
-            Tfms = new List<string> { "net6.0", "net7.0", "net8.0" }
+            Tfms = ["net6.0", "net7.0", "net8.0"]
         };
 
         var options = new System.Text.Json.JsonSerializerOptions

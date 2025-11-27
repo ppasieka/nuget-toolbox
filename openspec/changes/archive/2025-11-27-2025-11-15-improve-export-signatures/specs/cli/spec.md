@@ -53,7 +53,6 @@ The export-signatures command SHALL accept both `--filter` and `--namespace` fla
 - **THEN** help text shows both --filter and --namespace options
 - **AND** indicates they are aliases
 
-## MODIFIED Requirements
 
 ### Requirement: Interface Method Processing
 

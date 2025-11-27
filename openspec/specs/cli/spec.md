@@ -1,30 +1,31 @@
 # cli Specification
 
 ## Purpose
-Specify the behavior, options, error handling, and JSON output contracts (with schemas) for the nuget-toolbox CLI commands (find, list-types, export-signatures, diff, schema), covering package resolution, metadata extraction, documentation merging, API comparison, and logging guarantees for machine-consumable output.
+Specify the behavior, options, error handling, async execution model, and JSON output contracts (with schemas) for the nuget-toolbox CLI commands (find, list-types, export-signatures, diff, schema). This includes package resolution, metadata extraction, documentation merging, API comparison, logging guarantees for machine-consumable output, and standardized exit codes with cancellation support.
 ## Requirements
 ### Requirement: Find Package Command Handler
 
-The `find` command handler SHALL invoke `NuGetPackageResolver.ResolvePackageAsync` to resolve a NuGet package by ID and optional version, and output structured `PackageInfo` as JSON using `System.Text.Json` with camelCase property names.
+The `find` command handler SHALL invoke `NuGetPackageResolver.ResolvePackageAsync` asynchronously to resolve a NuGet package by ID and optional version, and output structured `PackageInfo` as JSON using `System.Text.Json` with camelCase property names. The handler SHALL support cancellation and return standardized exit codes.
 
 #### Scenario: Resolve with package ID only
 - **WHEN** user runs `find --package "Newtonsoft.Json"`
-- **THEN** system invokes `ResolvePackageAsync` as specified in NuGet Package Resolution
-- **AND** system outputs JSON with resolved `PackageInfo` (fields: `packageId`, `resolvedVersion`, `targetFrameworks`, `nupkgPath`)
+- **THEN** system invokes `ResolvePackageAsync` asynchronously with cancellation token
+- **AND** system outputs JSON with resolved `PackageInfo`
+- **AND** system returns exit code 0 (Success)
 
 #### Scenario: Resolve with explicit version
 - **WHEN** user runs `find --package "Newtonsoft.Json" --version "13.0.3"`
-- **THEN** system invokes `ResolvePackageAsync` with specified version
+- **THEN** system invokes `ResolvePackageAsync` with specified version and cancellation token
 - **AND** system outputs JSON with matching `PackageInfo`
 
 #### Scenario: Resolve from custom feed
 - **WHEN** user runs `find --package "Newtonsoft.Json" --feed "https://api.nuget.org/v3/index.json"`
-- **THEN** system invokes `ResolvePackageAsync` with custom feed
+- **THEN** system invokes `ResolvePackageAsync` with custom feed and cancellation token
 - **AND** system outputs JSON with resolved `PackageInfo`
 
 #### Scenario: Write output to file
 - **WHEN** user runs `find --package "Newtonsoft.Json" --output "result.json"`
-- **THEN** system writes JSON to specified file
+- **THEN** system writes JSON to specified file asynchronously
 - **AND** file contains valid JSON matching `PackageInfo` schema
 
 #### Scenario: Output to stdout by default
@@ -32,23 +33,29 @@ The `find` command handler SHALL invoke `NuGetPackageResolver.ResolvePackageAsyn
 - **THEN** system writes JSON to standard output
 - **AND** stdout contains only valid JSON matching `PackageInfo` schema
 
+#### Scenario: Cancellation support
+- **WHEN** user cancels the operation (e.g., Ctrl+C)
+- **THEN** system stops processing gracefully
+- **AND** system cleans up any temporary resources
+- **AND** system returns non-zero exit code
+
 ### Requirement: Error Handling
 
-The `find` command handler SHALL report actionable errors when package resolution fails.
+The `find` command handler SHALL report actionable errors when package resolution fails and use standardized exit codes.
 
 #### Scenario: Package not found
 - **WHEN** user runs `find --package "NonExistentPackage"`
-- **THEN** system returns non-zero exit code
+- **THEN** system returns exit code 1 (NotFound)
 - **AND** system logs descriptive error message identifying the missing package
 
 #### Scenario: Invalid feed URL
 - **WHEN** user runs `find --package "Newtonsoft.Json" --feed "http://invalid.local"`
-- **THEN** system returns non-zero exit code
+- **THEN** system returns exit code 4 (NetworkError)
 - **AND** system logs error indicating feed is unreachable or invalid
 
 #### Scenario: Network failure
 - **WHEN** network is unavailable during resolution
-- **THEN** system returns non-zero exit code
+- **THEN** system returns exit code 4 (NetworkError)
 - **AND** system logs error indicating network failure
 
 ### Requirement: NuGet Package Resolution
@@ -343,22 +350,22 @@ The system SHALL provide individual schemas for each CLI command (find, list-typ
 
 #### Scenario: Find command schema
 - **WHEN** find schema is exported
-- **THEN** schema uses $ref to models-1.0.schema.json#/$defs/PackageInfo
+- **THEN** schema uses `$ref` to models-1.0.schema.json#/$defs/PackageInfo
 - **AND** schema declares $schema as "https://json-schema.org/draft/2020-12/schema"
 
 #### Scenario: List-types command schema
 - **WHEN** list-types schema is exported
 - **THEN** schema defines type: "array"
-- **AND** items use $ref to models-1.0.schema.json#/$defs/TypeInfo
+- **AND** items use `$ref` to models-1.0.schema.json#/$defs/TypeInfo
 
 #### Scenario: Export-signatures command schema
 - **WHEN** export-signatures schema is exported
 - **THEN** schema defines type: "array"
-- **AND** items use $ref to models-1.0.schema.json#/$defs/MethodInfo
+- **AND** items use `$ref` to models-1.0.schema.json#/$defs/MethodInfo
 
 #### Scenario: Diff command schema
 - **WHEN** diff schema is exported
-- **THEN** schema uses $ref to models-1.0.schema.json#/$defs/DiffResult
+- **THEN** schema uses `$ref` to models-1.0.schema.json#/$defs/DiffResult
 
 ### Requirement: Schema Versioning
 
@@ -423,4 +430,101 @@ The system SHALL include comprehensive documentation and annotations in all sche
 - **THEN** schema includes top-level "examples" with complete command output samples
 - **AND** examples show typical successful responses
 - **AND** examples demonstrate optional fields when present
+
+### Requirement: Async Command Execution
+
+All CLI commands SHALL be implemented using asynchronous handlers (`SetHandler`) and SHALL NOT use blocking calls (`.Wait()` or `.Result`) for I/O operations. All handlers SHALL accept and propagate `CancellationToken`.
+
+#### Scenario: Async handler registration
+- **WHEN** command is configured
+- **THEN** it uses `SetHandler` with an async delegate
+- **AND** the delegate accepts `InvocationContext` or `CancellationToken`
+
+#### Scenario: Cancellation propagation
+- **WHEN** a command is running
+- **AND** a cancellation signal is received
+- **THEN** the `CancellationToken` is triggered
+- **AND** all downstream async services stop processing
+
+### Requirement: Standardized Exit Codes
+
+The CLI SHALL use standardized exit codes to indicate the result of an operation.
+
+#### Scenario: Exit codes
+- **WHEN** a command finishes
+- **THEN** it returns one of the following exit codes:
+  - 0: Success
+  - 1: Package/Version not found
+  - 2: Target Framework mismatch or not found
+  - 3: Invalid options or arguments
+  - 4: Network or Authentication error
+  - 5: Unexpected runtime error
+
+### Requirement: Enhanced Type Visibility Filtering
+
+The export-signatures command SHALL filter types using `Type.IsVisible` and limit to classes and interfaces only.
+
+#### Scenario: Public nested type in public outer type
+- **WHEN** processing an assembly with a public nested class inside a public outer class
+- **THEN** the nested class methods are included in output
+- **AND** the nested class is identified as visible via `IsVisible`
+
+#### Scenario: Public nested type in internal outer type
+- **WHEN** processing an assembly with a public nested class inside an internal outer class
+- **THEN** the nested class methods are excluded from output
+- **AND** the nested class is identified as not visible via `IsVisible`
+
+#### Scenario: Struct and enum filtering
+- **WHEN** processing an assembly with public structs and enums
+- **THEN** struct and enum methods are excluded from output
+- **AND** only classes and interfaces are processed
+
+### Requirement: Partial Load Resilience
+
+The export-signatures command SHALL handle `ReflectionTypeLoadException` gracefully and continue processing successfully loaded types.
+
+#### Scenario: Missing dependency causes partial load failure
+- **WHEN** assembly references missing dependencies causing `ReflectionTypeLoadException`
+- **THEN** command processes all successfully loaded types
+- **AND** logs warning about partial load with counts
+- **AND** does not crash or skip entire assembly
+
+#### Scenario: All types fail to load
+- **WHEN** all types in assembly fail to load
+- **THEN** command logs error and continues with next assembly
+- **AND** returns empty method list for that assembly
+
+### Requirement: CLI Flag Compatibility
+
+The export-signatures command SHALL accept both `--filter` and `--namespace` flags with identical behavior.
+
+#### Scenario: Using --filter flag
+- **WHEN** user runs `export-signatures --package "Newtonsoft.Json" --filter "Newtonsoft.Json.Linq"`
+- **THEN** command filters methods by specified namespace
+- **AND** produces expected filtered output
+
+#### Scenario: Using --namespace flag
+- **WHEN** user runs `export-signatures --package "Newtonsoft.Json" --namespace "Newtonsoft.Json.Linq"`
+- **THEN** command filters methods by specified namespace
+- **AND** produces identical output to --filter flag
+
+#### Scenario: Help text shows both flags
+- **WHEN** user runs `export-signatures --help`
+- **THEN** help text shows both --filter and --namespace options
+- **AND** indicates they are aliases
+
+### Requirement: Interface Method Processing
+
+The export-signatures command SHALL process only declared methods for interface types (maintaining current behavior).
+
+#### Scenario: Interface with inherited methods
+- **WHEN** processing an interface that inherits from another interface
+- **THEN** only methods declared directly on the interface are included
+- **AND** inherited interface methods are excluded
+- **AND** behavior matches current implementation
+
+#### Scenario: Class implementing interface
+- **WHEN** processing a class that implements interfaces
+- **THEN** all public methods (including interface implementations) are included
+- **AND** filtering respects `DeclaredOnly` for interface types only
 

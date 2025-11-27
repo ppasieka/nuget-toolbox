@@ -22,7 +22,7 @@ public class ExportSignaturesCommandE2ETests
         // Arrange
         var arguments = $"export-signatures --package Newtonsoft.Json --version 13.0.1 --filter Newtonsoft.Json --format jsonl";
         _output.WriteLine($"Executing: dotnet {_cliPath} {arguments}");
-        
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
@@ -84,14 +84,14 @@ public class ExportSignaturesCommandE2ETests
         // Assert
         Assert.Equal(0, filterProcess.ExitCode);
         Assert.Equal(0, namespaceProcess.ExitCode);
-        
+
         // Both outputs should be identical
         Assert.Equal(filterOutput, namespaceOutput);
-        
+
         // Verify the output contains expected types from Newtonsoft.Json.Linq namespace
         var lines = filterOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         var methods = lines.Select(l => JsonSerializer.Deserialize<MethodInfo>(l)).ToList();
-        
+
         var linqTypes = methods.Select(m => m?.Type).Distinct().Where(t => t?.Contains("JToken") == true).ToList();
         Assert.NotEmpty(linqTypes);
     }
@@ -101,7 +101,7 @@ public class ExportSignaturesCommandE2ETests
     {
         // This test validates that the improved visibility filtering works correctly
         // by checking that only classes and interfaces are included in the output
-        
+
         // Arrange
         var startInfo = new ProcessStartInfo
         {
@@ -128,7 +128,7 @@ public class ExportSignaturesCommandE2ETests
         // But we can verify that the output contains expected class/interface types
         var classTypes = methods.Where(m => m?.Type?.Contains("JsonConvert") == true).ToList();
         var interfaceTypes = methods.Where(m => m?.Type?.Contains("IJson") == true).ToList();
-        
+
         Assert.NotEmpty(classTypes);
         // Newtonsoft.Json should have some I-prefixed interface types
         Assert.True(interfaceTypes.Any() || methods.Count > 0, "Should have either interface types or other valid types");
@@ -139,7 +139,7 @@ public class ExportSignaturesCommandE2ETests
     {
         // This test validates that the command handles partial load failures gracefully
         // We use a package that might have some missing dependencies to test resilience
-        
+
         // Arrange
         var startInfo = new ProcessStartInfo
         {
@@ -160,12 +160,12 @@ public class ExportSignaturesCommandE2ETests
         // Assert
         Assert.Equal(0, process.ExitCode);
         Assert.NotEmpty(output);
-        
+
         // Even if there are partial load issues, the command should succeed
         // and produce some output rather than failing completely
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         Assert.NotEmpty(lines);
-        
+
         // Any warnings about partial loads should go to stderr, not cause failure
         // The presence of output indicates successful processing despite any issues
     }

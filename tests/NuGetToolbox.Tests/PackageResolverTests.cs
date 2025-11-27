@@ -49,7 +49,8 @@ public class PackageResolverTests
 
             var result = await (Task<List<string>>)method!.Invoke(
                 resolver,
-                new object[] { nupkgPath, CancellationToken.None })!;
+                [nupkgPath, CancellationToken.None]
+            )!;
 
             // Assert
             Assert.NotNull(result);
@@ -114,7 +115,8 @@ public class PackageResolverTests
 
             var result = await (Task<List<string>>)method!.Invoke(
                 resolver,
-                new object[] { nupkgPath, CancellationToken.None })!;
+                [nupkgPath, CancellationToken.None]
+            )!;
 
             // Assert
             Assert.NotNull(result);

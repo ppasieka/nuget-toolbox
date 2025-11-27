@@ -1,7 +1,7 @@
 # e2e-testing Specification
 
 ## Purpose
-TBD - created by archiving change add-e2e-tests. Update Purpose after archive.
+Specify the requirements for End-to-End (E2E) testing of the NuGet Toolbox CLI, ensuring critical user workflows (find, list-types, export-signatures, diff) are validated against real NuGet packages with correct outputs, performance benchmarks, and isolation guarantees.
 ## Requirements
 ### Requirement: Find Command E2E Test
 The test suite SHALL verify the `find` command resolves a real NuGet package and returns valid JSON output.
