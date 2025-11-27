@@ -109,7 +109,7 @@ public static class SchemaCommand
                 }
 
                 await File.WriteAllTextAsync(filePath, schema);
-                Console.WriteLine($"Wrote {fileName}");
+                Console.Error.WriteLine($"Wrote {fileName}");
             }
 
             return ExitCodes.Success;
@@ -126,9 +126,9 @@ public static class SchemaCommand
                     continue;
                 }
 
-                Console.WriteLine($"--- {commandName} ---");
+                Console.Error.WriteLine($"--- {commandName} ---");
                 Console.WriteLine(schema);
-                Console.WriteLine();
+                Console.Error.WriteLine();
             }
 
             return ExitCodes.Success;
@@ -154,7 +154,7 @@ public static class SchemaCommand
             }
 
             await File.WriteAllTextAsync(outputPath, schema);
-            Console.WriteLine($"Wrote schema to {outputPath}");
+            Console.Error.WriteLine($"Wrote schema to {outputPath}");
         }
         else
         {
