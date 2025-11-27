@@ -2,14 +2,10 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using NuGet.Packaging;
 using NuGetToolbox.Cli.Services;
 
 namespace NuGetToolbox.Cli.Commands;
 
-/// <summary>
-/// ExportSignatures command: Export public method signatures with XML documentation.
-/// </summary>
 public static class ExportSignaturesCommand
 {
     public static Command Create(IServiceProvider serviceProvider)
@@ -91,6 +87,7 @@ public static class ExportSignaturesCommand
         {
             var resolver = serviceProvider.GetRequiredService<NuGetPackageResolver>();
             var exporter = serviceProvider.GetRequiredService<SignatureExporter>();
+            var assemblyExtractor = serviceProvider.GetRequiredService<AssemblyExtractor>();
 
             logger.LogInformation("Resolving package {PackageId} (version: {Version})", packageId, version ?? "latest");
 
@@ -102,29 +99,36 @@ public static class ExportSignaturesCommand
                 return ExitCodes.NotFound;
             }
 
-            var (assemblyPaths, extractDir) = await ExtractAssembliesAsync(packageInfo.NupkgPath, tfm, logger, cancellationToken);
-            tempDir = extractDir;
+            var result = await assemblyExtractor.ExtractAssembliesAsync(packageInfo.NupkgPath, tfm, true, cancellationToken);
+            tempDir = result.TempDir;
 
-            if (assemblyPaths.Count == 0)
+            if (result.ErrorMessage != null)
+            {
+                logger.LogError("{Error}", result.ErrorMessage);
+                Console.Error.WriteLine($"Error: {result.ErrorMessage}");
+                return ExitCodes.TfmMismatch;
+            }
+
+            if (result.Assemblies.Count == 0)
             {
                 logger.LogWarning("No assemblies found in package for TFM {Tfm}", tfm ?? "any");
                 return ExitCodes.TfmMismatch;
             }
 
-            var methods = exporter.ExportMethods(assemblyPaths, namespaceFilter, cancellationToken);
+            var methods = exporter.ExportMethods(result.Assemblies, namespaceFilter, cancellationToken);
 
-            var result = format.ToLowerInvariant() == "jsonl"
+            var jsonResult = format.ToLowerInvariant() == "jsonl"
                 ? exporter.ExportToJsonL(methods)
                 : exporter.ExportToJson(methods);
 
             if (!string.IsNullOrEmpty(output))
             {
-                await File.WriteAllTextAsync(output, result, cancellationToken);
+                await File.WriteAllTextAsync(output, jsonResult, cancellationToken);
                 logger.LogInformation("Method signatures written to {OutputPath}", output);
             }
             else
             {
-                Console.WriteLine(result);
+                Console.WriteLine(jsonResult);
             }
 
             return ExitCodes.Success;
@@ -149,57 +153,5 @@ public static class ExportSignaturesCommand
                 }
             }
         }
-    }
-
-    private static async Task<(List<string> assemblies, string? tempDir)> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger, CancellationToken cancellationToken)
-    {
-        var assemblies = new List<string>();
-
-        using var packageReader = new PackageArchiveReader(nupkgPath);
-        var libItems = await packageReader.GetLibItemsAsync(cancellationToken);
-
-        var targetGroup = string.IsNullOrEmpty(tfm)
-            ? libItems.OrderByDescending(g => g.TargetFramework.Version).FirstOrDefault()
-            : libItems.FirstOrDefault(g => g.TargetFramework.GetShortFolderName() == tfm);
-
-        if (targetGroup == null)
-        {
-            logger.LogWarning("No lib items found for TFM {Tfm}", tfm ?? "any");
-            return (assemblies, null);
-        }
-
-        var tempDir = Path.Combine(Path.GetTempPath(), $"nuget-toolbox-{Guid.NewGuid()}");
-        Directory.CreateDirectory(tempDir);
-
-        foreach (var item in targetGroup.Items.Where(i => i.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)))
-        {
-            var fileName = Path.GetFileName(item);
-            var destPath = Path.Combine(tempDir, fileName);
-
-            using (var stream = packageReader.GetStream(item))
-            using (var fileStream = File.Create(destPath))
-            {
-                await stream.CopyToAsync(fileStream, cancellationToken);
-            }
-
-            assemblies.Add(destPath);
-        }
-
-        var xmlItems = targetGroup.Items.Where(i => i.EndsWith(".xml", StringComparison.OrdinalIgnoreCase));
-        foreach (var item in xmlItems)
-        {
-            var fileName = Path.GetFileName(item);
-            var destPath = Path.Combine(tempDir, fileName);
-
-            using (var stream = packageReader.GetStream(item))
-            using (var fileStream = File.Create(destPath))
-            {
-                await stream.CopyToAsync(fileStream, cancellationToken);
-            }
-        }
-
-        logger.LogInformation("Extracted {Count} assemblies from {Tfm}", assemblies.Count, targetGroup.TargetFramework.GetShortFolderName());
-
-        return (assemblies, tempDir);
     }
 }

@@ -107,7 +107,13 @@ public class SignatureExporter
         }
 
         _logger.LogInformation("Exported {Count} methods", methods.Count);
-        return methods;
+
+        // Sort for deterministic output: by Type, then Method, then Signature
+        return methods
+            .OrderBy(m => m.Type, StringComparer.Ordinal)
+            .ThenBy(m => m.Method, StringComparer.Ordinal)
+            .ThenBy(m => m.Signature, StringComparer.Ordinal)
+            .ToList();
     }
 
     /// <summary>

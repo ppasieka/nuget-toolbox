@@ -69,6 +69,8 @@ src/NuGetToolbox.Cli/
 │   └── SchemaCommand.cs   # Export JSON Schema definitions
 ├── Services/              # Core business logic
 │   ├── NuGetPackageResolver.cs    # V3 API integration
+│   ├── FrameworkSelector.cs       # TFM selection using FrameworkReducer
+│   ├── AssemblyExtractor.cs       # Shared assembly extraction with ref/ preference
 │   ├── AssemblyInspector.cs       # MetadataLoadContext wrapper
 │   ├── SignatureExporter.cs       # C# signature rendering
 │   ├── XmlDocumentationProvider.cs
@@ -113,6 +115,17 @@ tests/NuGetToolbox.Tests/
 - Resolves `(packageId, version?)` to `.nupkg` via NuGet.Protocol V3
 - Respects `nuget.config` source mappings & credential providers
 - Returns: `PackageInfo` with resolved version, TFMs, nupkg path
+
+**FrameworkSelector**
+- Selects nearest compatible TFM using `NuGet.Frameworks.FrameworkReducer.GetNearest()`
+- Correctly handles cross-family compatibility (e.g., net8.0 → netstandard2.0 > net48)
+- Provides available TFM listing for error messages
+
+**AssemblyExtractor**
+- Extracts assemblies from `.nupkg` with proper TFM selection
+- Prefers `ref/` (reference assemblies) over `lib/` for cleaner API surface
+- Falls back to `lib/` when `ref/` is empty
+- Retrieves XML docs from `lib/` when using `ref/` assemblies
 
 **AssemblyInspector**
 - Extracts `List<TypeInfo>` from assembly paths

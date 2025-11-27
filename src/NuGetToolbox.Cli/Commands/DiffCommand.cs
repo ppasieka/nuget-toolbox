@@ -4,14 +4,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using NuGet.Packaging;
 using NuGetToolbox.Cli.Services;
 
 namespace NuGetToolbox.Cli.Commands;
 
-/// <summary>
-/// Diff command: Compare public API between two package versions.
-/// </summary>
 public static class DiffCommand
 {
     public static Command Create(IServiceProvider serviceProvider)
@@ -86,6 +82,7 @@ public static class DiffCommand
             var resolver = serviceProvider.GetRequiredService<NuGetPackageResolver>();
             var exporter = serviceProvider.GetRequiredService<SignatureExporter>();
             var analyzer = serviceProvider.GetRequiredService<ApiDiffAnalyzer>();
+            var assemblyExtractor = serviceProvider.GetRequiredService<AssemblyExtractor>();
 
             logger.LogInformation("Comparing {PackageId} versions {From} -> {To}", packageId, fromVersion, toVersion);
 
@@ -103,22 +100,36 @@ public static class DiffCommand
                 return ExitCodes.NotFound;
             }
 
-            var (fromAssemblies, fromDir) = await ExtractAssembliesAsync(fromPackage.NupkgPath, tfm, logger, cancellationToken);
-            fromTempDir = fromDir;
+            var fromResult = await assemblyExtractor.ExtractAssembliesAsync(fromPackage.NupkgPath, tfm, true, cancellationToken);
+            fromTempDir = fromResult.TempDir;
 
-            var (toAssemblies, toDir) = await ExtractAssembliesAsync(toPackage.NupkgPath, tfm, logger, cancellationToken);
-            toTempDir = toDir;
+            if (fromResult.ErrorMessage != null)
+            {
+                logger.LogError("From package: {Error}", fromResult.ErrorMessage);
+                Console.Error.WriteLine($"Error (from): {fromResult.ErrorMessage}");
+                return ExitCodes.TfmMismatch;
+            }
 
-            if (fromAssemblies.Count == 0 || toAssemblies.Count == 0)
+            var toResult = await assemblyExtractor.ExtractAssembliesAsync(toPackage.NupkgPath, tfm, true, cancellationToken);
+            toTempDir = toResult.TempDir;
+
+            if (toResult.ErrorMessage != null)
+            {
+                logger.LogError("To package: {Error}", toResult.ErrorMessage);
+                Console.Error.WriteLine($"Error (to): {toResult.ErrorMessage}");
+                return ExitCodes.TfmMismatch;
+            }
+
+            if (fromResult.Assemblies.Count == 0 || toResult.Assemblies.Count == 0)
             {
                 logger.LogWarning("No assemblies found in one or both package versions for TFM {Tfm}", tfm ?? "any");
                 return ExitCodes.TfmMismatch;
             }
 
-            var methodsFrom = exporter.ExportMethods(fromAssemblies, cancellationToken: cancellationToken);
-            var methodsTo = exporter.ExportMethods(toAssemblies, cancellationToken: cancellationToken);
+            var methodsFrom = exporter.ExportMethods(fromResult.Assemblies, cancellationToken: cancellationToken);
+            var methodsTo = exporter.ExportMethods(toResult.Assemblies, cancellationToken: cancellationToken);
 
-            var targetFramework = tfm ?? fromPackage.Tfms?.FirstOrDefault() ?? "unknown";
+            var targetFramework = fromResult.SelectedFramework?.GetShortFolderName() ?? tfm ?? "unknown";
             var diffResult = analyzer.CompareVersions(packageId, methodsFrom, methodsTo, fromVersion, toVersion, targetFramework, cancellationToken);
 
             var options = new JsonSerializerOptions
@@ -168,57 +179,5 @@ public static class DiffCommand
                 logger?.LogWarning(ex, "Failed to cleanup temp directory {TempDir}", tempDir);
             }
         }
-    }
-
-    private static async Task<(List<string> assemblies, string? tempDir)> ExtractAssembliesAsync(string nupkgPath, string? tfm, ILogger logger, CancellationToken cancellationToken)
-    {
-        var assemblies = new List<string>();
-
-        using var packageReader = new PackageArchiveReader(nupkgPath);
-        var libItems = await packageReader.GetLibItemsAsync(cancellationToken);
-
-        var targetGroup = string.IsNullOrEmpty(tfm)
-            ? libItems.OrderByDescending(g => g.TargetFramework.Version).FirstOrDefault()
-            : libItems.FirstOrDefault(g => g.TargetFramework.GetShortFolderName() == tfm);
-
-        if (targetGroup == null)
-        {
-            logger.LogWarning("No lib items found for TFM {Tfm}", tfm ?? "any");
-            return (assemblies, null);
-        }
-
-        var tempDir = Path.Combine(Path.GetTempPath(), $"nuget-toolbox-{Guid.NewGuid()}");
-        Directory.CreateDirectory(tempDir);
-
-        foreach (var item in targetGroup.Items.Where(i => i.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)))
-        {
-            var fileName = Path.GetFileName(item);
-            var destPath = Path.Combine(tempDir, fileName);
-
-            using (var stream = packageReader.GetStream(item))
-            using (var fileStream = File.Create(destPath))
-            {
-                await stream.CopyToAsync(fileStream, cancellationToken);
-            }
-
-            assemblies.Add(destPath);
-        }
-
-        var xmlItems = targetGroup.Items.Where(i => i.EndsWith(".xml", StringComparison.OrdinalIgnoreCase));
-        foreach (var item in xmlItems)
-        {
-            var fileName = Path.GetFileName(item);
-            var destPath = Path.Combine(tempDir, fileName);
-
-            using (var stream = packageReader.GetStream(item))
-            using (var fileStream = File.Create(destPath))
-            {
-                await stream.CopyToAsync(fileStream, cancellationToken);
-            }
-        }
-
-        logger.LogInformation("Extracted {Count} assemblies from {Tfm}", assemblies.Count, targetGroup.TargetFramework.GetShortFolderName());
-
-        return (assemblies, tempDir);
     }
 }

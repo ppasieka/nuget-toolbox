@@ -81,20 +81,38 @@ public class ApiDiffAnalyzer
 
         _logger.LogInformation("Found {Breaking} breaking changes, {Added} additions", breaking.Count, added.Count);
 
+        // Sort all arrays for deterministic output
+        var sortedBreaking = breaking
+            .OrderBy(d => d.Type, StringComparer.Ordinal)
+            .ThenBy(d => d.Signature, StringComparer.Ordinal)
+            .ToList();
+
+        var sortedAdded = added
+            .OrderBy(t => t.Namespace, StringComparer.Ordinal)
+            .ThenBy(t => t.Name, StringComparer.Ordinal)
+            .ToList();
+
+        var sortedRemovedTypes = removed
+            .Select(d => new TypeInfo
+            {
+                Namespace = ExtractNamespace(d.Type),
+                Name = ExtractTypeName(d.Type),
+                Kind = "class"
+            })
+            .DistinctBy(t => (t.Namespace, t.Name))
+            .OrderBy(t => t.Namespace, StringComparer.Ordinal)
+            .ThenBy(t => t.Name, StringComparer.Ordinal)
+            .ToList();
+
         return new DiffResult
         {
             PackageId = packageId,
             VersionFrom = versionFrom,
             VersionTo = versionTo,
             Tfm = tfm,
-            Breaking = breaking.Count > 0 ? breaking : null,
-            Added = added.Count > 0 ? added : null,
-            Removed = removed.Count > 0 ? removed.Select(d => new TypeInfo
-            {
-                Namespace = ExtractNamespace(d.Type),
-                Name = ExtractTypeName(d.Type),
-                Kind = "class"
-            }).ToList() : null,
+            Breaking = sortedBreaking.Count > 0 ? sortedBreaking : null,
+            Added = sortedAdded.Count > 0 ? sortedAdded : null,
+            Removed = sortedRemovedTypes.Count > 0 ? sortedRemovedTypes : null,
             Compatible = breaking.Count == 0
         };
     }

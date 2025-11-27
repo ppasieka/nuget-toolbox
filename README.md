@@ -482,13 +482,29 @@ nuget-toolbox export-signatures \
 - `4` - Network or Authentication error
 - `5` - Unexpected runtime error
 
-### TFM Preference Order (default)
+### TFM Selection
 
-```
-net8.0 → net7.0 → netstandard2.0 → net462
-```
+The tool uses NuGet's `FrameworkReducer.GetNearest()` for intelligent TFM selection:
 
-Override with `--tfm net6.0` on any command.
+- **Automatic selection**: Based on runtime (e.g., running on .NET 8 prefers net8.0 > net6.0 > netstandard2.0)
+- **Cross-family compatibility**: Correctly handles `netstandard2.0` for `net8.0` runtime (unlike naive version sorting)
+- **Override**: Use `--tfm net6.0` to specify explicitly
+
+### Reference Assembly Preference
+
+When extracting assemblies from packages:
+
+- **ref/ preferred**: Reference assemblies (`ref/`) are used when available for cleaner API surface
+- **lib/ fallback**: Falls back to `lib/` when `ref/` is empty
+- **XML docs**: Retrieved from `lib/` even when using `ref/` assemblies (ref/ typically doesn't include XML docs)
+
+### Deterministic Output
+
+All output arrays are sorted for consistent, reproducible results:
+
+- `TypeInfo`: sorted by `namespace`, then `name`
+- `MethodInfo`: sorted by `type`, then `method`, then `signature`  
+- `DiffResult` arrays: sorted by `type`, then `signature`
 
 ### Logging Levels
 

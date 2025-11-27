@@ -19,6 +19,8 @@ services.AddTransient<AssemblyInspector>();     // Uses MetadataLoadContext per-
 services.AddTransient<XmlDocumentationProvider>(); // Loads docs per-assembly
 services.AddTransient<SignatureExporter>();     // Per-operation processing
 services.AddTransient<ApiDiffAnalyzer>();       // Per-comparison processing
+services.AddSingleton<FrameworkSelector>();    // Stateless, reusable
+services.AddTransient<AssemblyExtractor>();    // Per-operation processing
 
 var serviceProvider = services.BuildServiceProvider();
 
