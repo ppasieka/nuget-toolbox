@@ -1,5 +1,7 @@
 # 📦 NuGet Toolbox
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ppasieka/nuget-toolbox)
+
 > **Inspect NuGet package APIs safely. Extract signatures. Detect breaking changes. Feed LLMs.**
 
 A **CLI tool** for analyzing public APIs in NuGet packages without executing code. Built with **.NET 8+** and **MetadataLoadContext** for secure, deterministic metadata inspection.
