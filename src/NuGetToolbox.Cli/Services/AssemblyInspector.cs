@@ -169,11 +169,17 @@ public class AssemblyInspector
 
         if ((attributes & TypeAttributes.ClassSemanticsMask) == TypeAttributes.Class)
         {
-            var baseTypeName = type.BaseType?.FullName;
-            if (baseTypeName == "System.Enum")
-                return "enum";
-            if (baseTypeName == "System.ValueType")
-                return "struct";
+            try
+            {
+                var baseTypeName = type.BaseType?.FullName;
+                if (baseTypeName == "System.Enum")
+                    return "enum";
+                if (baseTypeName == "System.ValueType")
+                    return "struct";
+            }
+            catch (FileNotFoundException)
+            {
+            }
             return "class";
         }
 
