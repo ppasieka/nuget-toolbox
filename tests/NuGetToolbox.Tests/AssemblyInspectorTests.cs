@@ -132,6 +132,69 @@ public class AssemblyInspectorTests
         }
     }
 
+    [Fact]
+    public void ExtractPublicTypes_WithNestedPublicType_IncludesNestedType()
+    {
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+        var assemblyPath = Path.Combine(tempDir, "NestedTypes.dll");
+
+        CreateAssemblyWithNestedTypes(assemblyPath);
+
+        var mockLogger = new Mock<ILogger<AssemblyInspector>>();
+        var inspector = new AssemblyInspector(mockLogger.Object);
+
+        try
+        {
+            // Act
+            var types = inspector.ExtractPublicTypes(assemblyPath);
+
+            // Assert
+            Assert.NotNull(types);
+            Assert.Contains(types, t => t.Name == "Container");
+            Assert.Contains(types, t => t.Name == "NestedPublic");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void ExtractPublicTypes_WithNestedPublicInInternalContainer_ExcludesNestedType()
+    {
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+        var assemblyPath = Path.Combine(tempDir, "InternalContainer.dll");
+
+        CreateAssemblyWithNestedTypeInInternalContainer(assemblyPath);
+
+        var mockLogger = new Mock<ILogger<AssemblyInspector>>();
+        var inspector = new AssemblyInspector(mockLogger.Object);
+
+        try
+        {
+            // Act
+            var types = inspector.ExtractPublicTypes(assemblyPath);
+
+            // Assert - nested public in internal container should NOT be visible
+            Assert.NotNull(types);
+            Assert.DoesNotContain(types, t => t.Name == "NestedInInternal");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
     private void CreateSimpleAssembly(string path)
     {
         var assemblyName = new AssemblyName(Path.GetFileNameWithoutExtension(path));
@@ -146,6 +209,52 @@ public class AssemblyInspectorTests
         typeBuilder.CreateType();
 
         // Save the assembly using reflection
+        var generator = new Lokad.ILPack.AssemblyGenerator();
+        generator.GenerateAssembly(assemblyBuilder, path);
+    }
+
+    private void CreateAssemblyWithNestedTypes(string path)
+    {
+        var assemblyName = new AssemblyName(Path.GetFileNameWithoutExtension(path));
+        var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
+        var moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName.Name!);
+
+        // Create public container class
+        var containerBuilder = moduleBuilder.DefineType(
+            "Container",
+            TypeAttributes.Public | TypeAttributes.Class);
+
+        // Create nested public class - must call CreateType on nested type first
+        var nestedBuilder = containerBuilder.DefineNestedType(
+            "NestedPublic",
+            TypeAttributes.NestedPublic | TypeAttributes.Class);
+        nestedBuilder.CreateType();
+
+        containerBuilder.CreateType();
+
+        var generator = new Lokad.ILPack.AssemblyGenerator();
+        generator.GenerateAssembly(assemblyBuilder, path);
+    }
+
+    private void CreateAssemblyWithNestedTypeInInternalContainer(string path)
+    {
+        var assemblyName = new AssemblyName(Path.GetFileNameWithoutExtension(path));
+        var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
+        var moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName.Name!);
+
+        // Create internal container class
+        var containerBuilder = moduleBuilder.DefineType(
+            "InternalContainer",
+            TypeAttributes.NotPublic | TypeAttributes.Class);
+
+        // Create nested public class inside internal container - must call CreateType on nested type first
+        var nestedBuilder = containerBuilder.DefineNestedType(
+            "NestedInInternal",
+            TypeAttributes.NestedPublic | TypeAttributes.Class);
+        nestedBuilder.CreateType();
+
+        containerBuilder.CreateType();
+
         var generator = new Lokad.ILPack.AssemblyGenerator();
         generator.GenerateAssembly(assemblyBuilder, path);
     }

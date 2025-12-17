@@ -79,7 +79,7 @@ The system SHALL resolve NuGet packages using the NuGet.Protocol V3 API with sup
 
 ### Requirement: Assembly Metadata Inspection
 
-The system SHALL extract type and member metadata from assemblies using MetadataLoadContext without loading code into the default AppDomain. The system SHALL gracefully handle missing dependencies by extracting partial results when dependency assemblies are unavailable.
+The system SHALL extract type and member metadata from assemblies using MetadataLoadContext without loading code into the default AppDomain. The system SHALL gracefully handle missing dependencies by extracting partial results when dependency assemblies are unavailable. **The system SHALL use `Type.IsVisible` to identify public types, correctly including nested public types where the entire containment chain is public.**
 
 #### Scenario: Extract public types from assembly
 - **WHEN** `ExtractPublicTypes` is called with assembly path
@@ -114,6 +114,23 @@ The system SHALL extract type and member metadata from assemblies using Metadata
 - **WHEN** assembly file is invalid or corrupted
 - **THEN** system throws `InvalidOperationException` with descriptive message
 - **AND** system does not return partial results
+
+#### Scenario: Include nested public types
+- **WHEN** assembly contains public types nested inside other public types
+- **THEN** system includes nested public types in output
+- **AND** uses `Type.IsVisible` to determine visibility
+- **AND** nested type name appears as `OuterType+NestedType` format
+
+#### Scenario: Exclude nested public types in internal containers
+- **WHEN** assembly contains public types nested inside internal types
+- **THEN** system excludes those nested types from output
+- **AND** `Type.IsVisible` correctly identifies them as not externally visible
+
+#### Scenario: Use fallback type classification when base type unavailable
+- **WHEN** `GetTypeKind` cannot resolve base type due to missing dependency
+- **THEN** system uses type attributes to infer kind (interface, struct, class)
+- **AND** system logs debug message about fallback classification
+- **AND** system continues processing remaining types
 
 ### Requirement: XML Documentation Parsing
 
@@ -789,4 +806,30 @@ The system SHALL sort all output arrays to ensure identical JSON output for iden
 - **WHEN** same command is run twice with identical inputs
 - **THEN** stdout output is byte-for-byte identical
 - **AND** JSON can be compared with simple string equality
+
+### Requirement: Shared JSON Serialization Configuration
+
+The system SHALL provide a centralized `CommandOutput` utility class for JSON serialization and result output, ensuring consistent formatting across all CLI commands.
+
+#### Scenario: Serialize object to JSON with standard options
+- **WHEN** `CommandOutput.SerializeJson<T>` is called with any serializable object
+- **THEN** the output uses camelCase property naming
+- **AND** the output is indented for readability
+- **AND** null values are omitted from output
+
+#### Scenario: Write result to file
+- **WHEN** `CommandOutput.WriteResultAsync` is called with a non-empty output path
+- **THEN** the content is written to the specified file asynchronously
+- **AND** the logger records the output path at Information level
+
+#### Scenario: Write result to stdout
+- **WHEN** `CommandOutput.WriteResultAsync` is called with null or empty output path
+- **THEN** the content is written to standard output
+- **AND** no file is created
+
+#### Scenario: Cancellation support for file writes
+- **WHEN** `CommandOutput.WriteResultAsync` is called with a CancellationToken
+- **AND** the token is cancelled during write
+- **THEN** the operation stops gracefully
+- **AND** partial files may remain (OS-dependent)
 

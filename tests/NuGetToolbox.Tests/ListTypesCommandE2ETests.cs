@@ -106,4 +106,35 @@ public class ListTypesCommandE2ETests
         Assert.NotNull(jsonConvert);
         Assert.Equal("class", jsonConvert.Kind);
     }
+
+    [Fact]
+    public async Task ListTypes_NewtonsoftJson_IncludesNestedPublicTypes()
+    {
+        // Arrange - Newtonsoft.Json has nested public types like JsonSerializerSettings+ReferenceLoopHandling
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"{_cliPath} list-types --package Newtonsoft.Json --version 13.0.1",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        // Act
+        using var process = Process.Start(startInfo)!;
+        var output = await process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        // Assert
+        Assert.Equal(0, process.ExitCode);
+
+        var types = JsonSerializer.Deserialize<List<TypeInfo>>(output);
+        Assert.NotNull(types);
+
+        // Verify nested types are included (uses IsVisible instead of IsPublic)
+        // JsonReader has nested public State enum
+        Assert.True(types.Any(t => t.Kind == "enum" && t.Namespace == "Newtonsoft.Json"),
+            "Expected at least one public nested enum in Newtonsoft.Json namespace");
+    }
 }

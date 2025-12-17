@@ -64,7 +64,7 @@ public class AssemblyInspector
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    if (!type.IsPublic)
+                    if (!type.IsVisible)
                         continue;
 
                     var kind = GetTypeKind(type);
@@ -141,14 +141,41 @@ public class AssemblyInspector
 
     private static string? GetTypeKind(Type type)
     {
-        if (type.IsClass)
-            return "class";
-        if (type.IsInterface)
+        try
+        {
+            if (type.IsClass)
+                return "class";
+            if (type.IsInterface)
+                return "interface";
+            if (type.IsValueType && !type.IsEnum)
+                return "struct";
+            if (type.IsEnum)
+                return "enum";
+        }
+        catch (FileNotFoundException)
+        {
+            return GetTypeKindFromAttributes(type);
+        }
+
+        return null;
+    }
+
+    private static string? GetTypeKindFromAttributes(Type type)
+    {
+        var attributes = type.Attributes;
+
+        if ((attributes & TypeAttributes.Interface) == TypeAttributes.Interface)
             return "interface";
-        if (type.IsValueType && !type.IsEnum)
-            return "struct";
-        if (type.IsEnum)
-            return "enum";
+
+        if ((attributes & TypeAttributes.ClassSemanticsMask) == TypeAttributes.Class)
+        {
+            var baseTypeName = type.BaseType?.FullName;
+            if (baseTypeName == "System.Enum")
+                return "enum";
+            if (baseTypeName == "System.ValueType")
+                return "struct";
+            return "class";
+        }
 
         return null;
     }

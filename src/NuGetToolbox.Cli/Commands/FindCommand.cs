@@ -1,7 +1,5 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGetToolbox.Cli.Services;
@@ -82,24 +80,8 @@ public static class FindCommand
                 return ExitCodes.NotFound;
             }
 
-            var options = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = true,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            };
-
-            var json = JsonSerializer.Serialize(packageInfo, options);
-
-            if (!string.IsNullOrEmpty(output))
-            {
-                await File.WriteAllTextAsync(output, json, cancellationToken);
-                logger.LogInformation("Package information written to {OutputPath}", output);
-            }
-            else
-            {
-                Console.WriteLine(json);
-            }
+            var json = CommandOutput.SerializeJson(packageInfo);
+            await CommandOutput.WriteResultAsync(json, output, logger, cancellationToken);
 
             return ExitCodes.Success;
         }

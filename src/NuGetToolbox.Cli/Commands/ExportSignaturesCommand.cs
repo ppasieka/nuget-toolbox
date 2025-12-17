@@ -121,15 +121,7 @@ public static class ExportSignaturesCommand
                 ? exporter.ExportToJsonL(methods)
                 : exporter.ExportToJson(methods);
 
-            if (!string.IsNullOrEmpty(output))
-            {
-                await File.WriteAllTextAsync(output, jsonResult, cancellationToken);
-                logger.LogInformation("Method signatures written to {OutputPath}", output);
-            }
-            else
-            {
-                Console.WriteLine(jsonResult);
-            }
+            await CommandOutput.WriteResultAsync(jsonResult, output, logger, cancellationToken);
 
             return ExitCodes.Success;
         }
